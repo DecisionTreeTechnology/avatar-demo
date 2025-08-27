@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Key Encryption Tool</title>
+</head>
+<body>
+    <h1>API Key Encryption Tool</h1>
+    <button id="encryptBtn">Encrypt Keys</button>
+    <pre id="output"></pre>
+
+    <script type="module">
+        // Inline encryption utility
+        const ENCRYPTION_PASSPHRASE = 'avatar-demo-2025-secure-keys';
+
+        async function deriveKey(passphrase) {
+            const encoder = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                encoder.encode(passphrase),
+                { name: 'PBKDF2' },
+                false,
+                ['deriveKey']
+            );
+
+            return crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: encoder.encode('avatar-demo-salt'),
+                    iterations: 100000,
+                    hash: 'SHA-256',
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        async function encryptString(plaintext) {
+            const encoder = new TextEncoder();
+            const key = await deriveKey(ENCRYPTION_PASSPHRASE);
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv },
+                key,
+                encoder.encode(plaintext)
+            );
+
+            const combined = new Uint8Array(iv.length + encrypted.byteLength);
+            combined.set(iv);
+            combined.set(new Uint8Array(encrypted), iv.length);
+            
+            return btoa(String.fromCharCode(...combined));
+        }
+
+        // Keys to encrypt
+        const keysToEncrypt = {
+            VITE_AZURE_SPEECH_KEY: '***REMOVED***',
+            VITE_AZURE_OPENAI_KEY: '***REMOVED***',
+            VITE_AZURE_OPENAI_ENDPOINT: 'https://ai-sergeigorlovetsky9615ai791785667110.services.ai.azure.com/'
+        };
+
+        async function encryptKeys() {
+            const output = document.getElementById('output');
+            output.textContent = 'Encrypting keys...\n\n';
+            
+            for (const [key, value] of Object.entries(keysToEncrypt)) {
+                try {
+                    const encrypted = await encryptString(value);
+                    output.textContent += `${key}=${encrypted}\n`;
+                } catch (error) {
+                    output.textContent += `Failed to encrypt ${key}: ${error}\n`;
+                }
+            }
+        }
+
+        document.getElementById('encryptBtn').addEventListener('click', encryptKeys);
+    </script>
+</body>
+</html>

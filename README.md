@@ -26,9 +26,20 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for complete security guidelines.
 
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS
 - **3D Graphics:** Three.js, TalkingHead library
-- **AI Services:** Azure OpenAI, Azure Speech Services
-- **Deployment:** Azure Static Web Apps
+- **AI Services:** Azure OpenAI (direct API), Azure Speech Services (direct API)
+- **Deployment:** Azure Static Web Apps (static hosting only)
 - **Voice:** Web Speech API, Azure Speech SDK
+
+## 🔧 Architecture
+
+This is a **simplified demo architecture** that calls Azure APIs directly from the frontend:
+
+```
+Frontend (React) → Azure OpenAI API (direct)
+                → Azure Speech API (direct)
+```
+
+**For production**, consider using Azure Functions as an API layer for better security and rate limiting.
 
 ## 🚀 Quick Start
 

@@ -5,8 +5,8 @@ export default defineConfig({
   plugins: [react()],
   
   optimizeDeps: {
-    // These modules are dynamically imported by TalkingHead; exclude to avoid pre-bundling errors
-    exclude: ['@met4citizen/talkinghead', '@met4citizen/headtts']
+    // TalkingHead module is dynamically imported; exclude to avoid pre-bundling errors
+    exclude: ['@met4citizen/talkinghead']
   },
   
   build: {
@@ -20,9 +20,8 @@ export default defineConfig({
         manualChunks: {
           // Separate vendor chunks for better caching
           vendor: ['react', 'react-dom'],
-          three: ['three'],
           azure: ['microsoft-cognitiveservices-speech-sdk'],
-          avatar: ['@met4citizen/talkinghead', '@met4citizen/headtts']
+          avatar: ['@met4citizen/talkinghead']
         }
       }
     },

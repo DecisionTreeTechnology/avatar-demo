@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { ChatBar } from './components/ChatBar';
-import { useLLM, LLMMessage } from './hooks/useLLMUnified';
-import { useAzureTTSUnified } from './hooks/useAzureTTSUnified';
+import { useLLM, LLMMessage } from './hooks/useLLM';
+import { useAzureTTS } from './hooks/useAzureTTS';
 import { useTalkingHead } from './hooks/useTalkingHead';
 
 export const App: React.FC = () => {
   const { chat, loading: llmLoading } = useLLM();
-  const { speakText, isSynthesizing } = useAzureTTSUnified();
+  const { speakText, isSynthesizing } = useAzureTTS();
   const talkingHead = useTalkingHead();
   const [answer, setAnswer] = useState('');
   const [history, setHistory] = useState<LLMMessage[]>([{ role: 'system', content: 'You are a helpful assistant.' }]);

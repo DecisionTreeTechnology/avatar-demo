@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TalkingHead } from '@met4citizen/talkinghead';
-import * as THREE from 'three';
 
 interface UseTalkingHeadOptions {
   avatarUrl?: string;

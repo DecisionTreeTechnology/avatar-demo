@@ -17,6 +17,4 @@ declare global {
 
 declare module '@met4citizen/talkinghead';
 
-declare module 'three';
-
 export {};

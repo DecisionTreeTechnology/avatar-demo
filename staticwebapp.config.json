@@ -1,0 +1,37 @@
+{
+  "_comment": "Azure Static Web Apps Configuration File - https://docs.microsoft.com/en-us/azure/static-web-apps/configuration",
+  "platform": {
+    "apiRuntime": "node:18"
+  },
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/*",
+      "serve": "/index.html",
+      "statusCode": 200
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "*.{css,scss,sass,js,json,png,jpg,jpeg,gif,svg,ico,woff,woff2,ttf,eot,webp,avif,mp3,mp4,wav,webm,glb,gltf}"]
+  },
+  "mimeTypes": {
+    ".json": "application/json",
+    ".glb": "model/gltf-binary",
+    ".gltf": "model/gltf+json"
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+  },
+  "responseOverrides": {
+    "401": {
+      "statusCode": 302,
+      "redirect": "/login"
+    }
+  }
+}

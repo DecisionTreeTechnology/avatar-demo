@@ -17,7 +17,6 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
   const key = opts.key || import.meta.env.VITE_AZURE_SPEECH_KEY;
   const region = opts.region || import.meta.env.VITE_AZURE_SPEECH_REGION;
   const voice = opts.voice || import.meta.env.VITE_AZURE_SPEECH_VOICE || 'en-US-JennyNeural';
-  const format = opts.format || 'riff-22050hz-16bit-mono-pcm';
 
   const synthesizerRef = useRef<SpeechSDK.SpeechSynthesizer | null>(null);
   const [isSynthesizing, setSynth] = useState(false);
@@ -47,7 +46,7 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
       const wdurations: number[] = [];
       
       // Set up word boundary event handler
-      synth.wordBoundary = (s, e) => {
+      synth.wordBoundary = (_s, e) => {
         const tMs = e.audioOffset / 10000;
         words.push(e.text);
         wtimes.push(tMs);
@@ -72,14 +71,20 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
         throw new Error('Azure synthesis produced no audio');
       }
       
-      // Decode audio data to AudioBuffer
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Create or get existing AudioContext with iOS Chrome compatibility
+      let audioCtx = (window as any).globalAudioContext;
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        (window as any).globalAudioContext = audioCtx;
+        console.log('[useAzureTTS] Created new global AudioContext');
+      }
       
       // Resume AudioContext if suspended (browser autoplay policy)
+      // This is especially important for iOS Chrome which has strict autoplay policies
       if (audioCtx.state === 'suspended') {
         try { 
           await audioCtx.resume(); 
-          console.log('[useAzureTTS] AudioContext resumed');
+          console.log('[useAzureTTS] AudioContext resumed, state:', audioCtx.state);
         } catch(e) { 
           console.warn('[useAzureTTS] Failed to resume AudioContext:', e); 
         }
@@ -90,7 +95,8 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
         duration: audioBuffer.duration,
         sampleRate: audioBuffer.sampleRate,
         numberOfChannels: audioBuffer.numberOfChannels,
-        length: audioBuffer.length
+        length: audioBuffer.length,
+        contextState: audioCtx.state
       });
       
       // Convert word timings to the expected format
@@ -102,13 +108,24 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
       
       console.log('[useAzureTTS] Word timings:', wordTimings.slice(0, 5), '... total:', wordTimings.length);
       
-      // Optional: Test direct audio playback (bypassing TalkingHead)
-      if (import.meta.env.VITE_PLAY_DIRECT === 'true') {
-        console.log('[useAzureTTS] Playing audio directly for testing...');
-        const source = audioCtx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioCtx.destination);
-        source.start();
+      // Test audio playback on mobile to ensure it works
+      // iOS Chrome uses WebKit engine so same restrictions as Safari apply
+      if (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent)) {
+        const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
+        console.log('[useAzureTTS] Mobile device detected' + (isIOSChrome ? ' (iOS Chrome)' : '') + ', testing audio playback...');
+        try {
+          const testSource = audioCtx.createBufferSource();
+          testSource.buffer = audioBuffer;
+          const gainNode = audioCtx.createGain();
+          gainNode.gain.value = 0.05; // Very quiet test for iOS Chrome
+          testSource.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          testSource.start();
+          testSource.stop(audioCtx.currentTime + 0.1); // Play just 100ms
+          console.log('[useAzureTTS] Mobile audio test successful' + (isIOSChrome ? ' (iOS Chrome compatible)' : ''));
+        } catch (e) {
+          console.warn('[useAzureTTS] Mobile audio test failed:', e);
+        }
       }
       
       return { audio: audioBuffer, wordTimings };

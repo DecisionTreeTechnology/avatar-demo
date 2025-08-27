@@ -35,7 +35,11 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     let disposed = false;
     let handleResize: (() => void) | null = null;
     const init = async () => {
-      if (!containerRef.current) return;
+      if (!containerRef.current) {
+        setTimeout(init, 100);
+        return;
+      }
+      
       let head: TalkingHead;
       try {
         head = new TalkingHead(containerRef.current, {
@@ -43,19 +47,28 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
           // Enable English lipsync module so speakAudio can auto-generate visemes from words.
           lipsyncModules: ['en'],
           avatarMood: 'neutral',
-          cameraView: 'head'
+          cameraView: 'full' // Show full body instead of just head
         });
       } catch (e:any) {
-        console.error('[useTalkingHead] construct error', e);
+        console.error('TalkingHead construct error', e);
         setError(e?.message || 'Failed to initialize TalkingHead');
         return;
       }
       headRef.current = head;
-      console.log('[diag] TalkingHead constructed');
       
       // TalkingHead handles canvas creation internally when container is provided
       setTimeout(() => {
-        console.log('[diag] container canvas elements after construct', containerRef.current?.querySelectorAll('canvas'));
+        const canvases = containerRef.current?.querySelectorAll('canvas');
+        if (canvases && canvases.length > 0) {
+          canvases.forEach((canvas) => {
+            // Force canvas to be visible and sized
+            canvas.style.display = 'block';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.minWidth = '300px';
+            canvas.style.minHeight = '400px';
+          });
+        }
       }, 250);
 
       handleResize = () => {
@@ -68,9 +81,18 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
           lipsyncLang: 'en', 
           avatarMood: 'neutral' 
         });
-        if (disposed) return;
+        if (disposed) {
+          return;
+        }
         setReady(true);
-        console.log('[diag] Avatar loaded, armature=', !!head.armature);
+        
+        // Add visual feedback that avatar is ready
+        setTimeout(() => {
+          const canvas = containerRef.current?.querySelector('canvas');
+          if (canvas) {
+            canvas.classList.add('avatar-ready');
+          }
+        }, 100);
       } catch (e:any) {
         console.error('Avatar load failed', e);
         setError(e?.message || 'Avatar load failed');
@@ -85,36 +107,66 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
   }, [avatarUrl, highDPI, ttsEndpoint]);
 
   const speak = useCallback(async (audioBuffer: AudioBuffer, timings?: SpeakWordTiming[]) => {
-    if (!headRef.current) return;
-    console.log('[useTalkingHead] Starting speak with buffer duration:', audioBuffer.duration, 'timings:', timings?.length);
+    if (!headRef.current) {
+      console.warn('No head instance available');
+      return;
+    }
     setSpeaking(true);
+    
     try {
+      // Create audio object for TalkingHead
       const audioObj = {
-        // Pass AudioBuffer directly (NOT inside an array) so TalkingHead uses it as-is.
         audio: audioBuffer,
         words: timings?.map(t => t.word) || [],
         wtimes: timings?.map(t => t.start) || [],
         wdurations: timings?.map(t => t.end - t.start) || []
-        // No visemes: library will compute from words using english module.
       };
-      console.log('[useTalkingHead] Calling speakAudio with:', {
-        audioBufferDuration: audioBuffer.duration,
-        wordCount: audioObj.words.length,
-        wtimesCount: audioObj.wtimes.length
+      
+      // Use promise-based approach to better track completion
+      await new Promise<void>((resolve, reject) => {
+        let isResolved = false;
+        const cleanup = () => {
+          if (!isResolved) {
+            isResolved = true;
+            setSpeaking(false);
+          }
+        };
+        
+        // Set up timeout as fallback
+        const maxDuration = Math.max(audioBuffer.duration * 1000 + 1000, 5000); // At least 5 seconds
+        const timeoutId = setTimeout(() => {
+          console.log('[useTalkingHead] speak timeout reached');
+          cleanup();
+          resolve();
+        }, maxDuration);
+        
+        try {
+          // Check if speakAudio method exists and call it
+          if (typeof headRef.current?.speakAudio === 'function') {
+            headRef.current.speakAudio(audioObj, {}, () => {
+              clearTimeout(timeoutId);
+              cleanup();
+              resolve();
+            });
+          } else {
+            console.warn('speakAudio method not available');
+            clearTimeout(timeoutId);
+            cleanup();
+            resolve();
+          }
+        } catch (error) {
+          console.error('speakAudio error:', error);
+          clearTimeout(timeoutId);
+          cleanup();
+          reject(error);
+        }
       });
       
-      // Try the original approach first
-      headRef.current.speakAudio(audioObj, {}, null);
-      console.log('[useTalkingHead] speakAudio called');
-      
-      // Wait for the audio duration + some buffer time
-      await new Promise(resolve => setTimeout(resolve, (audioBuffer.duration * 1000) + 500));
-      console.log('[useTalkingHead] speak completed (timeout-based)');
+      console.log('[useTalkingHead] speak completed successfully');
     } catch (e) {
-      console.error('[useTalkingHead] speak error:', e);
-      throw e;
-    } finally {
+      console.error('speak error:', e);
       setSpeaking(false);
+      throw e;
     }
   }, []);
 

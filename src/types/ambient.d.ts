@@ -15,6 +15,4 @@ declare global {
   }
 }
 
-declare module '@met4citizen/talkinghead';
-
 export {};

@@ -1,11 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-interface SpeechRecognitionResult {
-  transcript: string;
-  confidence: number;
-  isFinal: boolean;
-}
-
 interface UseSpeechRecognitionOptions {
   continuous?: boolean;
   interimResults?: boolean;
@@ -19,6 +13,7 @@ interface UseSpeechRecognitionReturn {
   isSupported: boolean;
   startListening: () => void;
   stopListening: () => void;
+  forceStop: () => void; // Immediate stop without restart capability
   resetTranscript: () => void;
   error: string | null;
 }
@@ -73,13 +68,11 @@ export function useSpeechRecognition(
     
     // Stop retry attempts after 5 failures
     if (retryCount >= 5) {
-      console.log('Max retry attempts reached, stopping speech recognition');
       setShouldRestart(false);
       setRetryCount(0);
       return;
     }
     
-    console.log(`Attempting to restart speech recognition (attempt ${retryCount + 1})`);
     setRetryCount(prev => prev + 1);
     setLastRestartTime(now);
     
@@ -124,7 +117,6 @@ export function useSpeechRecognition(
         };
         
         newRecognition.onerror = (event: any) => {
-          console.log('Speech recognition error:', event.error);
           if (event.error === 'no-speech' || event.error === 'network') {
             setError(null);
             setIsListening(false);
@@ -199,13 +191,10 @@ export function useSpeechRecognition(
     };
 
     recognitionRef.current.onerror = (event: any) => {
-      console.log('Speech recognition error:', event.error);
-      
       // Handle different error types
       if (event.error === 'no-speech') {
         // Don't show error for no-speech - it's common and expected
         // Just silently restart if user wants continuous listening
-        console.log('No speech detected, will retry...');
         setError(null);
         setIsListening(false);
         if (shouldRestart) {
@@ -223,7 +212,6 @@ export function useSpeechRecognition(
         setRetryCount(0);
       } else if (event.error === 'network') {
         // Network errors are common - just log and retry
-        console.log('Network error in speech recognition, will retry...');
         setError(null);
         setIsListening(false);
         if (shouldRestart) {
@@ -236,7 +224,6 @@ export function useSpeechRecognition(
         setShouldRestart(false);
         setRetryCount(0);
       } else {
-        console.log(`Speech recognition error: ${event.error}, will retry...`);
         setError(null); // Don't show most errors to user
         setIsListening(false);
         if (shouldRestart) {
@@ -251,7 +238,6 @@ export function useSpeechRecognition(
       
       // Auto-restart if we should be listening and it wasn't manually stopped
       if (shouldRestart) {
-        console.log('Speech recognition ended, attempting restart...');
         attemptRestart();
       }
     };
@@ -269,6 +255,7 @@ export function useSpeechRecognition(
   const stopListening = useCallback(() => {
     setShouldRestart(false);
     setRetryCount(0);
+    setIsListening(false); // Immediately set to false
     
     // Clear retry timeout
     if (retryTimeoutRef.current) {
@@ -277,7 +264,37 @@ export function useSpeechRecognition(
     }
     
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.abort(); // Use abort for immediate stop
+        recognitionRef.current = null; // Clear the reference
+      } catch (err) {
+        console.log('Error stopping recognition:', err);
+      }
+    }
+  }, []);
+
+  const forceStop = useCallback(() => {
+    setShouldRestart(false);
+    setRetryCount(0);
+    setIsListening(false);
+    setInterimTranscript('');
+    
+    // Clear retry timeout
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    
+    if (recognitionRef.current) {
+      try {
+        // Use abort() for immediate stop and also set onend to null to prevent restart
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      } catch (err) {
+        console.log('Error force stopping recognition:', err);
+      }
     }
   }, []);
 
@@ -300,6 +317,7 @@ export function useSpeechRecognition(
     isSupported,
     startListening,
     stopListening,
+    forceStop,
     resetTranscript,
     error
   };

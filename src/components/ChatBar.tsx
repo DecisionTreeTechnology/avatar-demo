@@ -6,6 +6,7 @@ interface ChatBarProps {
   placeholder?: string;
   onSend: (text: string) => void;
   busyLabel?: string;
+  onInteraction?: () => Promise<void> | void;
 }
 
 // Helper function to detect if text appears to be a complete sentence
@@ -27,7 +28,7 @@ const isCompleteSentence = (text: string): boolean => {
   return (endsWithPunctuation && hasMinWords) || (startsWithQuestion && wordCount >= 3);
 };
 
-export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend, busyLabel = 'Working...' }) => {
+export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend, busyLabel = 'Working...', onInteraction }) => {
   const [value, setValue] = useState('');
   const [autoSendTimer, setAutoSendTimer] = useState<NodeJS.Timeout | null>(null);
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
@@ -45,6 +46,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
     isSupported,
     startListening,
     stopListening,
+    forceStop,
     resetTranscript,
     error: speechError
   } = useSpeechRecognition({
@@ -84,14 +86,28 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
 
   // Auto-manage listening state based on avatar busy status
   useEffect(() => {
-    if (disabled && isListening) {
-      // Avatar is busy (speaking/thinking), stop listening but remember user wants it
-      stopListening();
-    } else if (!disabled && userWantsListening && !isListening) {
-      // Avatar is done, restart listening if user had it enabled
-      startListening();
+    if (disabled) {
+      // Avatar is busy (speaking/thinking), immediately force stop listening
+      forceStop();
     }
-  }, [disabled, isListening, userWantsListening, startListening, stopListening]);
+  }, [disabled, forceStop]);
+
+  // Separate effect to handle restarting when avatar finishes
+  useEffect(() => {
+    if (!disabled && userWantsListening && !isListening) {
+      // Avatar is done, restart listening if user had it enabled
+      // Small delay to ensure avatar audio has stopped playing
+      const timer = setTimeout(() => {
+        if (!disabled && userWantsListening) {
+          startListening();
+        }
+      }, 750); // Slightly longer delay
+      
+      return () => {
+        clearTimeout(timer);
+      };
+    }
+  }, [disabled, userWantsListening, isListening, startListening]);
 
   // Clear speech error after 5 seconds
   useEffect(() => {
@@ -148,11 +164,15 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
 
   const send = () => {
     if (!value.trim()) return;
+    onInteraction?.(); // Initialize audio context on user interaction
     onSendRef.current(value);
     setValue(''); // Clear the input after sending
   };
 
-  const toggleListening = () => {
+  const toggleListening = async () => {
+    // Initialize audio context on user interaction
+    await onInteraction?.();
+    
     if (isListening) {
       // User wants to stop listening
       setUserWantsListening(false);
@@ -177,10 +197,15 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
         <input
           className="w-full input-pill text-base min-h-[48px]"
           value={displayValue}
-          placeholder={placeholder || 'Share what is on your mind...'}
+          placeholder={placeholder || 'Press on mic or type to share what is on your mind...'}
           disabled={disabled}
           onChange={e => setValue(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          onFocus={() => onInteraction?.()} // Initialize audio context on focus
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck="false"
         />
       </div>
       

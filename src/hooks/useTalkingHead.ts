@@ -21,7 +21,6 @@ export interface UseTalkingHeadResult {
   isSpeaking: boolean;
   error: string | null;
   speak: (audio: AudioBuffer, timings?: SpeakWordTiming[]) => Promise<void>;
-  stop: () => void;
   resetCamera: () => void;
 }
 
@@ -35,7 +34,7 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
 
   useEffect(() => {
     let disposed = false;
-  let handleResize: (() => void) | null = null;
+    let handleResize: (() => void) | null = null;
     const init = async () => {
       if (!containerRef.current) return;
       let head: TalkingHead;
@@ -120,14 +119,9 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     }
   }, []);
 
-  const stop = useCallback(() => {
-    try { headRef.current?.cancel?.(); } catch {}
-    setSpeaking(false);
-  }, []);
-
   const resetCamera = useCallback(() => {
     // future enhancement - reposition camera
   }, []);
 
-  return { containerRef, head: headRef.current, isReady, isSpeaking, error, speak, stop, resetCamera };
+  return { containerRef, head: headRef.current, isReady, isSpeaking, error, speak, resetCamera };
 }

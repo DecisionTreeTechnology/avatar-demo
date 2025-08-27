@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { ChatBar } from './components/ChatBar';
-import { useLLM, LLMMessage } from './hooks/useLLM';
+import { useLLMProduction, LLMMessage } from './hooks/useLLMProduction';
 import { useAzureTTS } from './hooks/useAzureTTS';
 import { useTalkingHead } from './hooks/useTalkingHead';
 
 export const App: React.FC = () => {
-  const { chat, loading: llmLoading } = useLLM();
+  const { chat, loading: llmLoading } = useLLMProduction();
   const { speakText, isSynthesizing } = useAzureTTS();
   const talkingHead = useTalkingHead();
   const [answer, setAnswer] = useState('');

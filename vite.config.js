@@ -34,13 +34,13 @@ export default defineConfig({
   
   server: {
     port: 5173,
-    // Development proxy for Azure Functions
-    proxy: {
-      '/api': {
-        target: 'http://localhost:7071',
-        changeOrigin: true,
-        secure: false
-      }
-    }
+    // Development proxy for Azure Functions (disabled when env vars are present for direct API calls)
+    // proxy: {
+    //   '/api': {
+    //     target: 'http://localhost:7071',
+    //     changeOrigin: true,
+    //     secure: false
+    //   }
+    // }
   }
 });

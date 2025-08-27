@@ -23,19 +23,43 @@ export function useLLM(opts: UseLLMOptions = {}) {
     setError(null);
     
     try {
-      // Check if we're in development with local Azure SDK or production with Azure Functions
+      // Debug environment variables
+      console.log('[useLLMUnified] Environment check:', {
+        isDev: import.meta.env.DEV,
+        mode: import.meta.env.MODE,
+        hasEndpoint: !!import.meta.env.VITE_AZURE_OPENAI_ENDPOINT,
+        hasKey: !!import.meta.env.VITE_AZURE_OPENAI_KEY,
+        hasDeployment: !!import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT,
+        endpoint: import.meta.env.VITE_AZURE_OPENAI_ENDPOINT?.substring(0, 50) + '...',
+        deployment: import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT,
+        allViteVars: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
+      });
+
+      // Use direct API calls in development when env vars are present
+      // This bypasses the Vite proxy to Azure Functions
       const useDirectAPI = import.meta.env.DEV && 
         import.meta.env.VITE_AZURE_OPENAI_ENDPOINT && 
         import.meta.env.VITE_AZURE_OPENAI_KEY;
 
-      if (useDirectAPI) {
+      console.log('[useLLMUnified] Using direct API:', useDirectAPI);
+
+      // Force direct API in development since env vars are configured
+      if (import.meta.env.DEV) {
         // Development: Use direct Azure OpenAI API calls
         const endpoint = opts.endpoint || import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
         const apiKey = opts.apiKey || import.meta.env.VITE_AZURE_OPENAI_KEY;
         const deployment = opts.deployment || import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-        const apiVersion = opts.apiVersion || import.meta.env.VITE_AZURE_OPENAI_API_VERSION || '2024-07-01-preview';
+        const apiVersion = opts.apiVersion || import.meta.env.VITE_AZURE_OPENAI_API_VERSION || '2024-05-01-preview';
+
+        console.log('[useLLMUnified] Config values:', {
+          endpoint: endpoint?.substring(0, 50) + '...',
+          hasApiKey: !!apiKey,
+          deployment,
+          apiVersion
+        });
 
         if (!endpoint || !apiKey || !deployment) {
+          console.error('[useLLMUnified] Missing config:', { endpoint: !!endpoint, apiKey: !!apiKey, deployment: !!deployment });
           throw new Error('Missing Azure OpenAI config for development');
         }
 
@@ -79,6 +103,7 @@ export function useLLM(opts: UseLLMOptions = {}) {
         return await attempt();
       } else {
         // Production or fallback: Use Azure Function
+        console.log('[useLLMUnified] Using Azure Function API');
         const response = await fetch('/api/chat-completion', {
           method: 'POST',
           headers: {

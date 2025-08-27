@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useAzureTTS } from './useAzureTTS';
 
 interface AzureTTSOptions {
   voice?: string;
@@ -15,24 +16,28 @@ export function useAzureTTSUnified(opts: AzureTTSOptions = {}) {
   const [isSynthesizing, setSynth] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Check if we should use direct API in development
+  const useDirectAPI = import.meta.env.DEV && 
+    import.meta.env.VITE_AZURE_SPEECH_KEY && 
+    import.meta.env.VITE_AZURE_SPEECH_REGION;
+
+  // Always initialize the direct API hook (even if we might not use it)
+  // This ensures hooks are called consistently
+  const directTTS = useAzureTTS({ voice });
+
   const speakText = useCallback(async (text: string): Promise<SpeakResult> => {
     setError(null);
     if (!text.trim()) throw new Error('Empty text');
     setSynth(true);
     
     try {
-      // Check if we're in development with local Azure SDK or production with Azure Functions
-      const useDirectAPI = import.meta.env.DEV && 
-        import.meta.env.VITE_AZURE_SPEECH_KEY && 
-        import.meta.env.VITE_AZURE_SPEECH_REGION;
-
       if (useDirectAPI) {
         // Development: Use direct Azure Speech SDK
-        const { useAzureTTS } = await import('./useAzureTTS');
-        const { speakText: devSpeakText } = useAzureTTS({ voice });
-        return await devSpeakText(text);
+        console.log('[useAzureTTSUnified] Using direct Azure Speech SDK');
+        return await directTTS.speakText(text);
       } else {
         // Production or fallback: Use Azure Function
+        console.log('[useAzureTTSUnified] Using Azure Function API');
         const response = await fetch('/api/speech-synthesis', {
           method: 'POST',
           headers: {
@@ -71,7 +76,15 @@ export function useAzureTTSUnified(opts: AzureTTSOptions = {}) {
     } finally {
       setSynth(false);
     }
-  }, [voice]);
+  }, [voice, useDirectAPI, directTTS]);
 
-  return { speakText, isSynthesizing, error };
+  // Return the combined state - show synthesizing if either this hook or the direct TTS is working
+  const combinedIsSynthesizing = isSynthesizing || (useDirectAPI && directTTS.isSynthesizing);
+  const combinedError = error || (useDirectAPI && directTTS.error);
+
+  return { 
+    speakText, 
+    isSynthesizing: combinedIsSynthesizing, 
+    error: combinedError 
+  };
 }

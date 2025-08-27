@@ -1,4 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
+import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 
 export async function speechSynthesis(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Azure Speech synthesis request received');
@@ -19,7 +20,7 @@ export async function speechSynthesis(request: HttpRequest, context: InvocationC
         const speechVoice = process.env.AZURE_SPEECH_VOICE || 'en-US-JennyNeural';
 
         if (!speechKey || !speechRegion) {
-            context.log.error('Missing Azure Speech configuration');
+            context.error('Missing Azure Speech configuration');
             return {
                 status: 500,
                 body: JSON.stringify({ error: 'Speech service configuration missing' })
@@ -27,7 +28,7 @@ export async function speechSynthesis(request: HttpRequest, context: InvocationC
         }
 
         // Import Azure Speech SDK
-        const SpeechSDK = await import('microsoft-cognitiveservices-speech-sdk');
+        // const SpeechSDK = await import('microsoft-cognitiveservices-speech-sdk');
         
         const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(speechKey, speechRegion);
         speechConfig.speechSynthesisOutputFormat = SpeechSDK.SpeechSynthesisOutputFormat.Riff22050Hz16BitMonoPcm;
@@ -57,7 +58,7 @@ export async function speechSynthesis(request: HttpRequest, context: InvocationC
         });
 
         if (result.reason !== SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-            context.log.error('Speech synthesis failed:', result.errorDetails);
+            context.error('Speech synthesis failed:', result.errorDetails);
             return {
                 status: 500,
                 body: JSON.stringify({ error: 'Speech synthesis failed: ' + result.errorDetails })
@@ -90,7 +91,7 @@ export async function speechSynthesis(request: HttpRequest, context: InvocationC
         };
 
     } catch (error) {
-        context.log.error('Error in speech synthesis:', error);
+        context.error('Error in speech synthesis:', error);
         return {
             status: 500,
             body: JSON.stringify({ error: 'Internal server error' })

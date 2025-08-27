@@ -33,6 +33,11 @@ export function useLLM(opts: UseLLMOptions = {}) {
         endpoint: import.meta.env.VITE_AZURE_OPENAI_ENDPOINT?.substring(0, 50) + '...',
         deployment: import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT,
         allViteVars: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
+        // Additional debug info
+        envVarCount: Object.keys(import.meta.env).length,
+        actualEndpoint: import.meta.env.VITE_AZURE_OPENAI_ENDPOINT,
+        actualKey: import.meta.env.VITE_AZURE_OPENAI_KEY ? '[PRESENT]' : '[MISSING]',
+        actualDeployment: import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT,
       });
 
       // Always use direct API calls since we have env vars configured
@@ -58,7 +63,11 @@ export function useLLM(opts: UseLLMOptions = {}) {
 
         if (!endpoint || !apiKey || !deployment) {
           console.error('[useLLM] Missing config:', { endpoint: !!endpoint, apiKey: !!apiKey, deployment: !!deployment });
-          throw new Error('Missing Azure OpenAI configuration');
+          const missing = [];
+          if (!endpoint) missing.push('VITE_AZURE_OPENAI_ENDPOINT');
+          if (!apiKey) missing.push('VITE_AZURE_OPENAI_KEY');
+          if (!deployment) missing.push('VITE_AZURE_OPENAI_DEPLOYMENT');
+          throw new Error(`Missing Azure OpenAI configuration: ${missing.join(', ')}`);
         }
 
         const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
@@ -102,7 +111,12 @@ export function useLLM(opts: UseLLMOptions = {}) {
       } else {
         // Fallback: Azure Functions (should not be needed with env vars configured)
         console.log('[useLLM] Fallback to Azure Function API - check environment variables');
-        throw new Error('Azure OpenAI environment variables not configured');
+        console.error('[useLLM] Environment variables not found. Available vars:', Object.keys(import.meta.env));
+        const missing = [];
+        if (!import.meta.env.VITE_AZURE_OPENAI_ENDPOINT) missing.push('VITE_AZURE_OPENAI_ENDPOINT');
+        if (!import.meta.env.VITE_AZURE_OPENAI_KEY) missing.push('VITE_AZURE_OPENAI_KEY');
+        if (!import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT) missing.push('VITE_AZURE_OPENAI_DEPLOYMENT');
+        throw new Error(`Azure OpenAI environment variables not configured: ${missing.join(', ')}. This may indicate a build-time configuration issue.`);
       }
     } catch (e: any) {
       setError(e.message || String(e));

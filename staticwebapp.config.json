@@ -1,4 +1,11 @@
 {
+  "build": {
+    "commands": [
+      "npm ci",
+      "npm run build"
+    ],
+    "outputLocation": "dist"
+  },
   "routes": [
     {
       "route": "/assets/*.js",

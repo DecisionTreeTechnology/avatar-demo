@@ -7,16 +7,21 @@
 </head>
 <body>
   <div id="stage" style="width:100vw; height:100vh; position:relative;"></div>
-  <div style="position:absolute; top:10px; left:10px; z-index:10; background:rgba(0,0,0,0.5); padding:8px; border-radius:6px; font:14px system-ui; color:#eee;">
-    <input id="text" value="Hello, this is HeadTTS lip sync running locally." size="50" style="background:#222; color:#eee; border:1px solid #444; padding:4px;"/>
-    <button id="speak" style="padding:5px 12px;">Speak</button>
-    <span id="status" style="margin-left:8px; opacity:.8;">Loading...</span>
+  <div style="position:absolute; top:10px; left:10px; right:10px; z-index:10; background:rgba(0,0,0,0.55); padding:10px 12px; border-radius:10px; font:14px system-ui; color:#eee; max-width:760px;">
+    <div style="display:flex; gap:8px; align-items:center;">
+      <input id="text" value="Ask me anything about Azure OpenAI." placeholder="Type your question..." style="flex:1; background:#1d1f24; color:#eee; border:1px solid #333; padding:8px 10px; border-radius:6px;"/>
+      <button id="speak" style="padding:8px 16px; background:#2d6ae0; border:none; color:#fff; border-radius:6px; cursor:pointer;">Ask</button>
+      <span id="status" style="margin-left:4px; opacity:.8; min-width:90px;">Loading...</span>
+    </div>
+    <div id="answer" style="margin-top:8px; font:13px/1.4 system-ui; white-space:pre-wrap; color:#d7e4ff; max-height:140px; overflow:auto; display:none;"></div>
+    <div style="margin-top:6px; font-size:11px; opacity:.6;">LLM + TTS demo. Configure window.AZURE_OPENAI_ENDPOINT / KEY / DEPLOYMENT (or Vite env) to enable server answers. Otherwise it will just TTS your input.</div>
   </div>
 
   <script type="module">
   import { TalkingHead } from '@met4citizen/talkinghead';
   import * as THREE from 'three';
   import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
+  // Using direct fetch for Azure OpenAI (SDK import removed due to browser export issue).
 
     const container = document.getElementById('stage');
     const status = document.getElementById('status');
@@ -121,18 +126,21 @@
     console.warn('[diag] framing error', e);
   }
 
-    // Azure Speech SDK setup
-    const AZURE_SPEECH_KEY = window.AZURE_SPEECH_KEY || '***REMOVED***';
-    const AZURE_SPEECH_REGION = window.AZURE_SPEECH_REGION || 'eastus2'; // e.g. 'eastus'
-    if (AZURE_SPEECH_KEY.startsWith('YOUR_')) {
-      console.warn('[azure] Replace YOUR_AZURE_SPEECH_KEY / YOUR_REGION with real credentials.');
+    // Azure Speech SDK setup (values sourced from Vite env or window fallbacks)
+    const AZURE_SPEECH_KEY = import.meta.env.VITE_AZURE_SPEECH_KEY || window.AZURE_SPEECH_KEY || '';
+    const AZURE_SPEECH_REGION = import.meta.env.VITE_AZURE_SPEECH_REGION || window.AZURE_SPEECH_REGION || '';
+    const AZURE_SPEECH_VOICE = import.meta.env.VITE_AZURE_SPEECH_VOICE || window.AZURE_SPEECH_VOICE || 'en-US-JennyNeural';
+    if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_REGION) {
+      console.warn('[azure] Speech key/region not set. Provide VITE_AZURE_SPEECH_KEY & VITE_AZURE_SPEECH_REGION in .env (not committed).');
+      status.textContent = 'Missing Azure Speech env vars';
     }
   const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(AZURE_SPEECH_KEY, AZURE_SPEECH_REGION);
-  speechConfig.speechSynthesisVoiceName = 'en-US-JennyNeural';
+  speechConfig.speechSynthesisVoiceName = AZURE_SPEECH_VOICE;
   // Use RIFF 22kHz to simplify decode and match default lip-sync expectations.
   speechConfig.speechSynthesisOutputFormat = SpeechSDK.SpeechSynthesisOutputFormat.Riff22050Hz16BitMonoPcm;
     // Allow toggling MP3 fallback via window.USE_MP3_FALLBACK = true
-    if (window.USE_MP3_FALLBACK) {
+  const USE_MP3_FALLBACK = (import.meta.env.VITE_USE_MP3_FALLBACK === 'true') || window.USE_MP3_FALLBACK;
+  if (USE_MP3_FALLBACK) {
       console.log('[azure] Using MP3 fallback output format');
       speechConfig.speechSynthesisOutputFormat = SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3;
     }
@@ -149,12 +157,67 @@
     status.textContent = 'Ready (Azure)';
     console.log('Initialization complete (Azure). Debug handle at window._debug');
 
-    // Synthesize & play
-    document.getElementById('speak').addEventListener('click', async () => {
-      const text = document.getElementById('text').value.trim();
-      if(!text) return;
-  status.textContent = 'Synthesizing (Azure)...';
+    // LLM (Azure AI Foundry deployment running Mistral model)
+    const AZURE_LLM_ENDPOINT = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || window.AZURE_OPENAI_ENDPOINT || '';
+    const AZURE_LLM_KEY = import.meta.env.VITE_AZURE_OPENAI_KEY || window.AZURE_OPENAI_KEY || '';
+    const AZURE_LLM_DEPLOYMENT = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT || window.AZURE_OPENAI_DEPLOYMENT || '';
+    const AZURE_LLM_API_VERSION = import.meta.env.VITE_AZURE_OPENAI_API_VERSION || '2024-05-01-preview';
+    const systemPrompt = 'You are a concise, supportive fertility education assistant. Keep answers ≤150 words, plain language, and end with: "This information is for educational purposes only and is not a substitute for medical advice. Please consult your doctor or fertility specialist for personalized guidance."';
+    async function fetchLLMAnswer(question){
+      if(!AZURE_LLM_ENDPOINT || !AZURE_LLM_KEY || !AZURE_LLM_DEPLOYMENT) return null;
+      const url = AZURE_LLM_ENDPOINT.replace(/\/$/, '') + `/openai/deployments/${AZURE_LLM_DEPLOYMENT}/chat/completions?api-version=${AZURE_LLM_API_VERSION}`;
+      const base = {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: question }
+        ]
+      };
+      async function attempt(payload){
+        const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', 'api-key': AZURE_LLM_KEY }, body: JSON.stringify(payload) });
+        return { res, json: res.ok ? await res.json() : null };
+      }
       try {
+        // Try modern (some Azure models now expect max_tokens) first.
+        let { res, json } = await attempt({ ...base, max_tokens: 600 });
+        if(res.status === 400){
+          const text = await res.text();
+            if(/max_tokens/i.test(text) && /not supported|Use 'max_completion_tokens'/i.test(text)){
+              console.log('[llm] Switching to max_completion_tokens');
+              ({ res, json } = await attempt({ ...base, max_completion_tokens: 600 }));
+            } else if(/max_completion_tokens/i.test(text) && /extra_forbidden/i.test(text)) {
+              console.log('[llm] Server forbids max_completion_tokens; retrying with max_tokens only');
+              ({ res, json } = await attempt({ ...base, max_tokens: 600 }));
+            } else if(/extra_forbidden/i.test(text) && /max_tokens/i.test(text)) {
+              console.log('[llm] Server forbids max_tokens; retrying with max_completion_tokens');
+              ({ res, json } = await attempt({ ...base, max_completion_tokens: 600 }));
+            } else {
+              console.warn('[llm] 400 body', text);
+            }
+        }
+        if(!res.ok){ console.warn('[llm] http', res.status); return null; }
+        const answer = json?.choices?.[0]?.message?.content?.trim();
+        return answer || null;
+      } catch(e){ console.warn('[llm] fetch error', e); return null; }
+    }
+
+    const speakBtn = document.getElementById('speak');
+    const answerBox = document.getElementById('answer');
+    const inputEl = document.getElementById('text');
+    speakBtn.addEventListener('click', async () => {
+      const question = inputEl.value.trim();
+      if(!question) return;
+      answerBox.style.display = 'none';
+      answerBox.textContent='';
+      status.textContent = 'Thinking...';
+      let finalText = question;
+      let usedLLM = false;
+      try {
+        const llm = await fetchLLMAnswer(question);
+        if (llm) { finalText = llm; usedLLM = true; }
+        status.textContent = 'Synthesizing...';
+        
+        // (TTS section reused below)
+        const text = finalText;
   const words = [];
   const wtimes = [];
   const wdurations = [];
@@ -233,7 +296,8 @@
         if (rms < 0.00001) console.warn('[diag][azure] Very low RMS (nearly silence).');
 
         // Optional direct playback test: set window.PLAY_DIRECT=true before clicking Speak
-        if (window.PLAY_DIRECT) {
+  const PLAY_DIRECT = (import.meta.env.VITE_PLAY_DIRECT === 'true') || window.PLAY_DIRECT;
+  if (PLAY_DIRECT) {
           const src = audioCtx.createBufferSource();
           src.buffer = buffer;
           src.connect(audioCtx.destination);
@@ -241,9 +305,13 @@
           console.log('[diag][azure] Direct playback started (bypassing TalkingHead).');
         }
 
-  head.speakAudio(audioObj, {}, null);
-  status.textContent = 'Speaking';
-  console.log('[diag][azure] queued audio', { wordCount: words.length, durationSec: buffer.duration, bytes: result.audioData.byteLength });
+        head.speakAudio(audioObj, {}, null);
+        status.textContent = 'Speaking';
+        console.log('[diag][azure] queued audio', { wordCount: words.length, durationSec: buffer.duration, bytes: result.audioData.byteLength, usedLLM });
+        if (usedLLM) {
+          answerBox.textContent = finalText;
+          answerBox.style.display = 'block';
+        }
         setTimeout(()=>{ console.log('[diag] Pose objects?', {armature: !!head.armature, sceneChildren: head.scene?.children?.length}); }, 2000);
         setTimeout(()=>{ console.log('[diag] After speaking camera pos', head.camera?.position); }, 1000);
       } catch(err) {

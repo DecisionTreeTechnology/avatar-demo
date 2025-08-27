@@ -44,6 +44,7 @@ export function useSpeechRecognition(
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [shouldRestart, setShouldRestart] = useState(false);
   
   const recognitionRef = useRef<any>(null);
   
@@ -54,6 +55,7 @@ export function useSpeechRecognition(
   const resetTranscript = useCallback(() => {
     setTranscript('');
     setInterimTranscript('');
+    setError(null);
   }, []);
 
   const startListening = useCallback(() => {
@@ -63,6 +65,7 @@ export function useSpeechRecognition(
     }
 
     setError(null);
+    setShouldRestart(true);
     
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognitionRef.current = new SpeechRecognition();
@@ -70,6 +73,13 @@ export function useSpeechRecognition(
     recognitionRef.current.continuous = continuous;
     recognitionRef.current.interimResults = interimResults;
     recognitionRef.current.lang = language;
+    recognitionRef.current.maxAlternatives = 1;
+    
+    // Set timeouts to handle no-speech scenarios better
+    if (recognitionRef.current.serviceURI !== undefined) {
+      // For webkitSpeechRecognition, we can set some additional properties
+      recognitionRef.current.grammars = undefined; // Use default grammar
+    }
 
     recognitionRef.current.onstart = () => {
       setIsListening(true);
@@ -95,8 +105,35 @@ export function useSpeechRecognition(
     };
 
     recognitionRef.current.onerror = (event: any) => {
-      setError(`Speech recognition error: ${event.error}`);
-      setIsListening(false);
+      console.log('Speech recognition error:', event.error);
+      
+      // Handle different error types
+      if (event.error === 'no-speech') {
+        setError('No speech detected. Please try speaking again.');
+        setIsListening(false);
+        setShouldRestart(false);
+      } else if (event.error === 'audio-capture') {
+        setError('Microphone access denied or not available.');
+        setIsListening(false);
+        setShouldRestart(false);
+      } else if (event.error === 'not-allowed') {
+        setError('Microphone access denied. Please allow microphone access.');
+        setIsListening(false);
+        setShouldRestart(false);
+      } else if (event.error === 'network') {
+        setError('Network error. Please check your connection.');
+        setIsListening(false);
+        setShouldRestart(false);
+      } else if (event.error === 'aborted') {
+        // Don't show error for user-initiated abort
+        setError(null);
+        setIsListening(false);
+        setShouldRestart(false);
+      } else {
+        setError(`Speech recognition error: ${event.error}`);
+        setIsListening(false);
+        setShouldRestart(false);
+      }
     };
 
     recognitionRef.current.onend = () => {
@@ -108,10 +145,12 @@ export function useSpeechRecognition(
       recognitionRef.current.start();
     } catch (err: any) {
       setError(`Failed to start speech recognition: ${err.message}`);
+      setShouldRestart(false);
     }
   }, [continuous, interimResults, language, isSupported]);
 
   const stopListening = useCallback(() => {
+    setShouldRestart(false);
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }

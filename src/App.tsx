@@ -81,15 +81,22 @@ export const App: React.FC = () => {
   return (
     <AppShell>
       <div className="relative w-full h-full flex flex-col">
-        <div className="flex-1 relative">
+        {/* Avatar Section - Responsive height */}
+        <div className="flex-1 relative min-h-0">
           <div ref={talkingHead.containerRef} className="absolute inset-0" />
           {talkingHead.error && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="glass p-4 rounded-lg text-red-300 text-sm max-w-sm">Avatar error: {talkingHead.error}</div>
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <div className="glass p-4 rounded-lg text-red-300 text-sm max-w-sm text-center">
+                Avatar error: {talkingHead.error}
+              </div>
             </div>
           )}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[min(900px,90vw)]">
-            <div className="glass p-4 rounded-xl space-y-3">
+        </div>
+        
+        {/* Chat Interface - Fixed at bottom with safe areas */}
+        <div className="safe-bottom safe-pads">
+          <div className="p-4 pb-2">
+            <div className="glass rounded-2xl p-4 space-y-3 max-w-2xl mx-auto">
               {needsGreeting && !hasGreeted && (
                 <div className="text-sm text-blue-300 bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-500/30">
                   👋 Your fertility companion is ready to greet you! Ask a question or start speaking to begin.
@@ -97,9 +104,13 @@ export const App: React.FC = () => {
               )}
               <ChatBar disabled={busy} onSend={handleAsk} busyLabel={llmLoading ? 'Thinking...' : 'Speaking...'} />
               {answer && (
-                <div className="text-xs leading-relaxed max-h-40 overflow-auto whitespace-pre-wrap border border-white/5 rounded-md p-3 bg-black/20">{answer}</div>
+                <div className="text-xs leading-relaxed max-h-32 sm:max-h-40 overflow-auto whitespace-pre-wrap border border-white/5 rounded-md p-3 bg-black/20">
+                  {answer}
+                </div>
               )}
-              <div className="text-[10px] opacity-60">Azure Foundry Mistral + Azure Speech • React migration WIP</div>
+              <div className="text-[10px] opacity-60 text-center">
+                Azure Foundry Mistral + Azure Speech • React migration WIP
+              </div>
             </div>
           </div>
         </div>

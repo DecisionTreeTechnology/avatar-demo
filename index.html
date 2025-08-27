@@ -2,8 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>TalkingHead + HeadTTS Demo</title>
-  <style>body {margin:0; background:#111;}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>Fertility Companion Avatar</title>
+  <style>
+    body {
+      margin: 0; 
+      background: #0a0a0a;
+      /* Prevent text size adjust on orientation change */
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      /* Prevent tap highlight on mobile */
+      -webkit-tap-highlight-color: transparent;
+      /* Smooth scrolling */
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Prevent zoom on input focus (iOS Safari) */
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  </style>
 </head>
 <body>
   <div id="root"></div>

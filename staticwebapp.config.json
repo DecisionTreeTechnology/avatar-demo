@@ -1,5 +1,4 @@
 {
-  "_comment": "Azure Static Web Apps Configuration File - https://docs.microsoft.com/en-us/azure/static-web-apps/configuration",
   "platform": {
     "apiRuntime": "node:18"
   },
@@ -9,29 +8,83 @@
       "allowedRoles": ["anonymous"]
     },
     {
+      "route": "/assets/*.js",
+      "headers": {
+        "Content-Type": "application/javascript",
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/assets/*.mjs",
+      "headers": {
+        "Content-Type": "application/javascript",
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/assets/*.css",
+      "headers": {
+        "Content-Type": "text/css",
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/assets/*.glb",
+      "headers": {
+        "Content-Type": "model/gltf-binary",
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/*.glb",
+      "headers": {
+        "Content-Type": "model/gltf-binary",
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/*.json",
+      "headers": {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=3600"
+      }
+    },
+    {
       "route": "/*",
-      "serve": "/index.html",
-      "statusCode": 200
+      "rewrite": "/index.html"
     }
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "*.{css,scss,sass,js,json,png,jpg,jpeg,gif,svg,ico,woff,woff2,ttf,eot,webp,avif,mp3,mp4,wav,webm,glb,gltf}"]
+    "exclude": ["/api/*", "/assets/*", "*.glb", "*.json"]
   },
   "mimeTypes": {
     ".json": "application/json",
+    ".js": "application/javascript",
+    ".mjs": "application/javascript",
+    ".css": "text/css",
     ".glb": "model/gltf-binary",
-    ".gltf": "model/gltf+json"
+    ".gltf": "model/gltf+json",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".eot": "application/vnd.ms-fontobject",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+    ".avif": "image/avif",
+    ".ico": "image/x-icon",
+    ".mp3": "audio/mpeg",
+    ".mp4": "video/mp4",
+    ".wav": "audio/wav",
+    ".webm": "video/webm"
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin"
-  },
-  "responseOverrides": {
-    "401": {
-      "statusCode": 302,
-      "redirect": "/login"
-    }
   }
 }

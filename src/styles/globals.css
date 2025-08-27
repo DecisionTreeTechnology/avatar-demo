@@ -2,18 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; }
+:root { 
+  color-scheme: dark; 
+  /* Better mobile scrolling */
+  touch-action: pan-x pan-y;
+}
+
 html,body,#root { height:100%; }
-body { @apply bg-neutral-950 text-white/90 antialiased; }
+body { 
+  @apply bg-neutral-950 text-white/90 antialiased; 
+  /* Prevent zoom on double-tap for mobile */
+  touch-action: manipulation;
+}
 
-.safe-pads { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
-.safe-top { padding-top: env(safe-area-inset-top); }
-.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+/* Safe area utilities for mobile devices */
+.safe-pads { 
+  padding-left: max(env(safe-area-inset-left), 16px); 
+  padding-right: max(env(safe-area-inset-right), 16px); 
+}
+.safe-top { 
+  padding-top: max(env(safe-area-inset-top), 16px); 
+}
+.safe-bottom { 
+  padding-bottom: max(env(safe-area-inset-bottom), 16px); 
+}
 
-.glass { @apply bg-white bg-opacity-10 backdrop-blur-md border border-white border-opacity-20 shadow-2xl; }
-.btn-base { @apply inline-flex items-center justify-center font-medium rounded-full focus:outline-none focus-visible:ring-2 ring-white ring-opacity-40 transition disabled:opacity-40 disabled:cursor-not-allowed; }
-.btn-icon { @apply btn-base w-12 h-12 md:w-14 md:h-14; }
-.input-pill { @apply w-full bg-white bg-opacity-10 border border-white border-opacity-20 rounded-2xl px-5 py-3 focus:outline-none focus-visible:ring-2 ring-white ring-opacity-30 placeholder-white placeholder-opacity-40; }
-.status-pill { @apply px-3 py-1 rounded-full text-xs font-medium bg-white bg-opacity-10 border border-white border-opacity-20; }
-.vignette:after { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 50% 40%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.65) 85%); }
-.rim-light { filter: drop-shadow(0 0 12px rgba(120,180,255,0.45)); }
+/* Glass effect */
+.glass { 
+  @apply bg-white bg-opacity-10 backdrop-blur-md border border-white border-opacity-20 shadow-2xl; 
+}
+
+/* Button base with better mobile touch targets */
+.btn-base { 
+  @apply inline-flex items-center justify-center font-medium rounded-full focus:outline-none focus-visible:ring-2 ring-white ring-opacity-40 transition disabled:opacity-40 disabled:cursor-not-allowed;
+  /* Minimum touch target size for mobile */
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.btn-icon { 
+  @apply btn-base;
+  @apply w-12 h-12 md:w-14 md:h-14;
+}
+
+/* Input with better mobile styling */
+.input-pill { 
+  @apply w-full bg-white bg-opacity-10 border border-white border-opacity-20 rounded-2xl px-5 py-3 focus:outline-none focus-visible:ring-2 ring-white ring-opacity-30 placeholder-white placeholder-opacity-40;
+  /* Better mobile input handling */
+  font-size: 16px; /* Prevents zoom on iOS */
+  line-height: 1.5;
+  min-height: 48px;
+}
+
+/* Mobile-specific input adjustments */
+@media (max-width: 768px) {
+  .input-pill {
+    font-size: 16px; /* Prevents zoom on iOS Safari */
+  }
+}
+
+.status-pill { 
+  @apply px-3 py-1 rounded-full text-xs font-medium bg-white bg-opacity-10 border border-white border-opacity-20; 
+}
+
+.vignette:after { 
+  content:""; 
+  position:absolute; 
+  inset:0; 
+  pointer-events:none; 
+  background:radial-gradient(circle at 50% 40%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.65) 85%); 
+}
+
+.rim-light { 
+  filter: drop-shadow(0 0 12px rgba(120,180,255,0.45)); 
+}
+
+/* Mobile keyboard handling */
+@media (max-width: 768px) {
+  /* Prevent viewport jumping when keyboard appears */
+  .mobile-keyboard-safe {
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { MicrophoneDebugPanel } from './MicrophoneDebugPanel';
 
 interface ChatBarProps {
   disabled?: boolean;
@@ -9,46 +10,23 @@ interface ChatBarProps {
   onInteraction?: () => Promise<void> | void;
 }
 
-// Helper function to detect if text appears to be a complete sentence
-const isCompleteSentence = (text: string): boolean => {
-  if (!text || text.length < 3) return false;
-  
-  // Check for sentence-ending punctuation
-  const endsWithPunctuation = /[.!?]\s*$/.test(text);
-  
-  // Check for minimum word count (at least 2 words for a sentence)
-  const wordCount = text.trim().split(/\s+/).length;
-  const hasMinWords = wordCount >= 2;
-  
-  // Check for common question words or phrases
-  const startsWithQuestion = /^(what|how|when|where|why|who|which|can|could|would|should|do|does|did|is|are|am|will|have|has)\b/i.test(text.trim());
-  
-  // Auto-send if it ends with punctuation and has enough words
-  // OR if it's a question (even without punctuation)
-  return (endsWithPunctuation && hasMinWords) || (startsWithQuestion && wordCount >= 3);
-};
-
 export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend, busyLabel = 'Working...', onInteraction }) => {
   const [value, setValue] = useState('');
   const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
   const [userWantsListening, setUserWantsListening] = useState(false);
+  const [showMicDebug, setShowMicDebug] = useState(false);
   
-  const {
-    isListening,
-    transcript,
-    interimTranscript,
-    isSupported,
-    startListening,
-    stopListening,
-    forceStop,
-    resetTranscript,
-    error: speechError
-  } = useSpeechRecognition({
-    continuous: true,
-    interimResults: true,
-    language: 'en-US'
-  });
+  const { 
+    isListening, 
+    transcript, 
+    interimTranscript, 
+    isSupported, 
+    startListening, 
+    forceStop, 
+    resetTranscript, 
+    error: speechError 
+  } = useSpeechRecognition({ continuous: true, interimResults: true });
 
   // Update input value when speech recognition provides transcript
   useEffect(() => {
@@ -101,6 +79,20 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
     }
   }, [speechError, resetTranscript]);
 
+  // Force reset stuck microphone state after timeout
+  useEffect(() => {
+    if (userWantsListening && !isListening && !disabled) {
+      // If user wants to listen but isn't actually listening and avatar isn't busy
+      // Reset after 5 seconds to prevent stuck state
+      const resetTimeout = setTimeout(() => {
+        console.log('Resetting stuck microphone state');
+        setUserWantsListening(false);
+      }, 5000);
+      
+      return () => clearTimeout(resetTimeout);
+    }
+  }, [userWantsListening, isListening, disabled]);
+
   // Auto-send after pause in speech (with delay)
   useEffect(() => {
     // Clear any existing timer
@@ -137,28 +129,14 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
     // Initialize audio context on user interaction
     await onInteraction?.();
     
-    // Additional iOS Chrome audio activation
-    const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
-    if (isIOSChrome) {
-      // Try to ensure audio context is really ready for iOS Chrome
-      const globalCtx = (window as any).globalAudioContext;
-      if (globalCtx && globalCtx.state === 'suspended') {
-        try {
-          await globalCtx.resume();
-          // Extra delay for iOS Chrome WebKit
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (e) {
-          console.warn('iOS Chrome audio activation issue:', e);
-        }
-      }
-    }
-    
-    if (isListening) {
-      // User wants to stop listening
+    if (isListening || userWantsListening) {
+      // User wants to stop listening or reset stuck state
+      console.log('Stopping listening, userWantsListening:', userWantsListening, 'isListening:', isListening);
       setUserWantsListening(false);
-      stopListening();
+      forceStop(); // Use forceStop instead of stopListening for immediate reset
     } else {
       // User wants to start listening
+      console.log('Starting listening');
       setUserWantsListening(true);
       if (!disabled) {
         // Only start if avatar is not busy
@@ -187,7 +165,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
             if (e.key === 'Enter' && !e.shiftKey) { 
               e.preventDefault(); 
               if (!value.trim()) return;
-              onInteraction?.(); 
+              onInteraction?.();
               onSend(value); 
               setValue(''); 
             } 
@@ -219,9 +197,9 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
             userWantsListening 
               ? (isListening 
                   ? 'Click to stop listening' 
-                  : 'Waiting for avatar to finish speaking...'
+                  : 'Waiting to start... Click to cancel if stuck'
                 )
-              : 'Click to start listening'
+              : 'Click to start voice input'
           }
         >
           {isListening ? (
@@ -243,12 +221,38 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
         className="btn-base bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 min-h-[48px] text-base font-medium"
         disabled={disabled}
         onClick={() => {
-          if (!value.trim()) return;
-          onInteraction?.(); // Initialize audio context on user interaction
+          if (!value.trim()) {
+            return;
+          }
+          onInteraction?.();
           onSend(value); // Call directly instead of using ref
           setValue(''); // Clear the input after sending
         }}
       >{disabled ? busyLabel : 'Ask'}</button>
+      
+      {/* Microphone Error Display */}
+      {speechError && (
+        <div className="absolute top-full left-0 right-0 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <strong>🎙️ Microphone Issue:</strong>
+              <p className="mt-1">{speechError}</p>
+            </div>
+            <button
+              onClick={() => setShowMicDebug(true)}
+              className="ml-2 text-red-600 hover:text-red-800 underline text-xs"
+            >
+              Debug
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Microphone Debug Panel */}
+      <MicrophoneDebugPanel
+        isVisible={showMicDebug}
+        onClose={() => setShowMicDebug(false)}
+      />
     </div>
   );
 };

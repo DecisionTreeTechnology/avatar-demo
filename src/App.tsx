@@ -1,105 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { ChatBar } from './components/ChatBar';
+import { IOSDebugPanel } from './components/IOSDebugPanel';
 import { useLLM, LLMMessage } from './hooks/useLLM';
-import { useAzureTTS } from './hooks/useAzureTTS';
+import { useEnhancedAzureTTS } from './hooks/useEnhancedAzureTTS';
 import { useTalkingHead } from './hooks/useTalkingHead';
-import { testAudioPlayback } from './utils/mobileDebug';
-import { getIOSChromeWarningMessage, testIOSAudioCompatibility } from './utils/iosCompatibility';
-import { ensureIOSAudioCompatibility } from './utils/iosAudioFixes';
 
 export const App: React.FC = () => {
   const { chat, loading: llmLoading } = useLLM();
-  const { speakText, isSynthesizing } = useAzureTTS();
+  const { speakText, isSynthesizing } = useEnhancedAzureTTS();
   const talkingHead = useTalkingHead();
   const [answer, setAnswer] = useState('');
   const [history, setHistory] = useState<LLMMessage[]>([{ role: 'system', content: 'You are a helpful assistant.' }]);
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [showIOSWarning, setShowIOSWarning] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const busy = isAsking || llmLoading || isSynthesizing || talkingHead.isSpeaking;
 
-  // Debug busy state changes
-  useEffect(() => {
-    console.log('[App] Busy state changed:', {
-      busy,
-      isAsking,
-      llmLoading,
-      isSynthesizing,
-      talkingHeadSpeaking: talkingHead.isSpeaking,
-    });
-  }, [busy, isAsking, llmLoading, isSynthesizing, talkingHead.isSpeaking]);
+
 
 
 
   // Initialize AudioContext on first user interaction (required for mobile)
-  const initAudioContext = async () => {
-    if (!audioContext) {
-      try {
-        // Apply iOS-specific audio fixes first
-        await ensureIOSAudioCompatibility();
-        
-        // Enhanced audio context initialization for iOS Chrome compatibility
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const ctx = new AudioContextClass({
-          sampleRate: 48000, // iOS prefers 48kHz
-          latencyHint: 'interactive'
-        });
-        
-        // Critical: iOS Chrome requires explicit resume after creation
-        if (ctx.state === 'suspended') {
-          await ctx.resume();
-          console.log('[App] AudioContext resumed after creation, state:', ctx.state);
-        }
-        
-        // Store globally for TTS hook and ensure it's accessible
-        (window as any).globalAudioContext = ctx;
-        setAudioContext(ctx);
-        
-        // Enhanced mobile audio testing with iOS Chrome specific handling
-        if (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent)) {
-          console.log('[App] Mobile device detected, running enhanced audio test...');
-          const audioTestResult = await testAudioPlayback();
-          
-          const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
-          if (!audioTestResult && isIOSChrome) {
-            console.warn('[App] iOS Chrome audio test failed - user may need to enable "Request Desktop Site"');
-            setShowIOSWarning(true);
-          }
-          
-          // Additional iOS compatibility test
-          if (isIOSChrome) {
-            const iosTest = await testIOSAudioCompatibility();
-            if (!iosTest.success || iosTest.needsDesktopMode) {
-              console.log('[App] iOS Chrome compatibility test:', iosTest.message);
-              setShowIOSWarning(true);
-            }
-          }
-        }
-        
-        console.log('[App] AudioContext initialization complete, state:', ctx.state);
-      } catch (error) {
-        console.error('[App] Failed to initialize AudioContext:', error);
-        // Don't throw - let the app continue and show error feedback
+  const initAudioContext = async (): Promise<void> => {
+    try {
+      // Simple audio context initialization
+      const globalCtx = (window as any).globalAudioContext;
+      if (globalCtx && globalCtx.state === 'suspended') {
+        await globalCtx.resume();
       }
-    } else {
-      // Ensure existing context is running
-      if (audioContext.state === 'suspended') {
-        try {
-          await audioContext.resume();
-          console.log('[App] Existing AudioContext resumed, state:', audioContext.state);
-        } catch (error) {
-          console.error('[App] Failed to resume existing AudioContext:', error);
-        }
+      
+      const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+      if (isIOS) {
+        setShowIOSWarning(globalCtx?.state !== 'running');
+      }
+      
+    } catch (error) {
+      console.error('Error initializing audio context:', error);
+      const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+      if (isIOS) {
+        setShowIOSWarning(true);
       }
     }
   };
 
-  const handleAsk = async (question: string) => {
-    setIsAsking(true);
+    const handleAsk = async (question: string) => {
     try {
-      // Initialize audio context on first user interaction
-      await initAudioContext();
+      setIsAsking(true);
+      setLastError(null);
+      initAudioContext();
       
       const msgs = [...history, { role: 'user', content: question } as LLMMessage];
       
@@ -110,33 +60,25 @@ export const App: React.FC = () => {
       setHistory([...msgs, { role: 'assistant', content: reply }]);
       setAnswer(reply);
       
-      // Ensure audio context is ready before TTS
-      if (audioContext && audioContext.state === 'suspended') {
-        await audioContext.resume();
-        
-        // For iOS Chrome, add extra delay to ensure WebKit is ready
-        if (/iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent)) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+      // Use enhanced TTS with iOS support and retry logic
+      try {
+        const ttsResult = await speakText(reply);
+        if (ttsResult && ttsResult.audio) {
+          await talkingHead.speak(ttsResult.audio, ttsResult.wordTimings);
         }
+      } catch (speechError) {
+        console.error('[App] TTS synthesis failed:', speechError);
+        // Still show the text response even if speech fails
       }
-      
-      // Generate speech
-      const tts = await speakText(reply);
-      
-      // Additional AudioContext check right before avatar speech
-      const globalCtx = (window as any).globalAudioContext;
-      if (globalCtx && globalCtx.state === 'suspended') {
-        await globalCtx.resume();
-      }
-      
-      // Play avatar speech
-      await talkingHead.speak(tts.audio, tts.wordTimings);
       
     } catch (e) {
       console.error('[App] Error in handleAsk:', e);
       
+      const errorMessage = e instanceof Error ? e.message : 'Something went wrong';
+      setLastError(errorMessage);
+      
       // Show error to user
-      setAnswer(`Error: ${e instanceof Error ? e.message : 'Something went wrong'}`);
+      setAnswer(`Error: ${errorMessage}`);
     } finally {
       setIsAsking(false);
     }
@@ -181,7 +123,7 @@ export const App: React.FC = () => {
                 <div className="flex-1">
                   <h4 className="font-medium text-sm">iOS Chrome Audio Notice</h4>
                   <p className="text-xs mt-1 opacity-90">
-                    {getIOSChromeWarningMessage()}
+                    Audio may not work properly on iOS. Please tap the screen to enable audio, then try again.
                   </p>
                 </div>
                 <button
@@ -196,11 +138,51 @@ export const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* iOS Debug Panel Toggle Button */}
+        {/iPad|iPhone|iPod/i.test(navigator.userAgent) && (
+          <button
+            onClick={() => setShowDebugPanel(!showDebugPanel)}
+            className="absolute top-4 right-4 z-40 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+          >
+            {showDebugPanel ? 'Hide Debug' : 'iOS Debug'}
+          </button>
+        )}
+
+        {/* iOS Debug Panel */}
+        {showDebugPanel && (
+          <div className="absolute top-16 left-4 right-4 z-30 max-h-96 overflow-auto">
+            <IOSDebugPanel 
+              isVisible={showDebugPanel} 
+              onClose={() => setShowDebugPanel(false)} 
+            />
+          </div>
+        )}
         
         {/* Chat Interface - Fixed at bottom with proper mobile safe areas */}
         <div className="mobile-bottom-panel">
           <div className="p-4 pb-safe">
             <div className="glass rounded-2xl p-4 space-y-3 max-w-2xl mx-auto">
+              {/* Debug Test Button */}
+              
+              {/* Error Display */}
+              {lastError && (
+                <div className="p-3 bg-red-900/50 border border-red-600 rounded-lg text-red-300">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <strong>❌ Error:</strong>
+                      <p className="mt-1 text-sm">{lastError}</p>
+                    </div>
+                    <button
+                      onClick={() => setLastError(null)}
+                      className="ml-2 text-red-400 hover:text-red-200"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <ChatBar 
                 disabled={busy} 
                 onSend={handleAsk} 

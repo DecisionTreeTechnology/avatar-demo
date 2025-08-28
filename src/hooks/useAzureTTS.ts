@@ -81,7 +81,7 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
           latencyHint: 'interactive'
         });
         (window as any).globalAudioContext = audioCtx;
-        console.log('[useAzureTTS] Created new global AudioContext with iOS optimizations');
+        console.log('Created new global AudioContext with iOS optimizations');
       }
       
       // Enhanced AudioContext management for iOS Chrome
@@ -89,33 +89,27 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
       if (audioCtx.state === 'suspended') {
         try { 
           await audioCtx.resume(); 
-          console.log('[useAzureTTS] AudioContext resumed, state:', audioCtx.state);
+          console.log('AudioContext resumed, state:', audioCtx.state);
           
           // For iOS Chrome, we need to ensure the context is truly ready
           // WebKit sometimes reports 'running' but audio still doesn't work
           if (/iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent)) {
             // Wait longer for iOS Chrome WebKit to be ready
             await new Promise(resolve => setTimeout(resolve, 300));
-            console.log('[useAzureTTS] iOS Chrome detected - extended context stabilization');
+            console.log('iOS Chrome detected - extended context stabilization');
           } else if (/iPad|iPhone|iPod/i.test(navigator.userAgent)) {
             // iOS Safari also needs some time
             await new Promise(resolve => setTimeout(resolve, 100));
-            console.log('[useAzureTTS] iOS Safari detected - context stabilization');
+            console.log('iOS Safari detected - context stabilization');
           }
         } catch(e) { 
-          console.warn('[useAzureTTS] Failed to resume AudioContext:', e); 
+          console.warn('Failed to resume AudioContext:', e); 
           throw new Error('Audio context activation failed - this often happens without user interaction on iOS');
         }
       }
       
       const audioBuffer = await audioCtx.decodeAudioData(audioData.slice(0));
-      console.log('[useAzureTTS] Audio decoded successfully:', {
-        duration: audioBuffer.duration,
-        sampleRate: audioBuffer.sampleRate,
-        numberOfChannels: audioBuffer.numberOfChannels,
-        length: audioBuffer.length,
-        contextState: audioCtx.state
-      });
+      console.log('Audio decoded successfully, duration:', audioBuffer.duration.toFixed(2) + 's');
       
       // Convert word timings to the expected format
       const wordTimings = words.map((word, i) => ({

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './test-setup';
 
 test.describe('Avatar Demo - Basic Working Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -23,7 +23,7 @@ test.describe('Avatar Demo - Basic Working Tests', () => {
     const chatInput = page.locator('input[placeholder*="Press on mic or type"]');
     await expect(chatInput).toBeVisible();
     
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]'); // Use specific test ID
     await expect(askButton).toBeVisible();
   });
 
@@ -60,7 +60,7 @@ test.describe('Avatar Demo - Basic Working Tests', () => {
 
   test('should have Ask button that responds to clicks', async ({ page }) => {
     const chatInput = page.locator('input[placeholder*="Press on mic or type"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]'); // Use specific test ID
     
     // Verify initial state
     await expect(askButton).toBeVisible();
@@ -86,7 +86,7 @@ test.describe('Avatar Demo - Basic Working Tests', () => {
 
   test('should handle keyboard interaction (Enter key)', async ({ page }) => {
     const chatInput = page.locator('input[placeholder*="Press on mic or type"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]'); // Use specific test ID
     
     // Verify initial state
     await expect(askButton).toBeVisible();
@@ -116,7 +116,7 @@ test.describe('Avatar Demo - Basic Working Tests', () => {
 
   test('should handle empty input validation', async ({ page }) => {
     const chatInput = page.locator('input[placeholder*="Press on mic or type"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]'); // Use specific test ID
     
     // Try to submit empty input
     await askButton.click();
@@ -132,7 +132,7 @@ test.describe('Avatar Demo - Basic Working Tests', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     
     const chatInput = page.locator('input[placeholder*="Press on mic or type"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]'); // Use specific test ID
     
     await expect(chatInput).toBeVisible();
     await expect(askButton).toBeVisible();
@@ -221,7 +221,7 @@ test.describe('Avatar Demo - Basic Working Tests', () => {
 
   test('should transition to processing state after form submission', async ({ page }) => {
     const chatInput = page.locator('input[placeholder*="Press on mic or type"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]'); // Use specific test ID
     
     // Fill and submit form
     await chatInput.fill('Test processing state');

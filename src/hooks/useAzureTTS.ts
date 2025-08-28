@@ -76,9 +76,12 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
       if (!audioCtx) {
         // Use webkitAudioContext specifically for iOS Chrome/Safari
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        audioCtx = new AudioContextClass();
+        audioCtx = new AudioContextClass({
+          sampleRate: 48000, // iOS prefers 48kHz
+          latencyHint: 'interactive'
+        });
         (window as any).globalAudioContext = audioCtx;
-        console.log('[useAzureTTS] Created new global AudioContext');
+        console.log('[useAzureTTS] Created new global AudioContext with iOS optimizations');
       }
       
       // Enhanced AudioContext management for iOS Chrome
@@ -91,9 +94,13 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
           // For iOS Chrome, we need to ensure the context is truly ready
           // WebKit sometimes reports 'running' but audio still doesn't work
           if (/iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent)) {
-            // Wait a bit longer for iOS Chrome WebKit to be ready
+            // Wait longer for iOS Chrome WebKit to be ready
+            await new Promise(resolve => setTimeout(resolve, 300));
+            console.log('[useAzureTTS] iOS Chrome detected - extended context stabilization');
+          } else if (/iPad|iPhone|iPod/i.test(navigator.userAgent)) {
+            // iOS Safari also needs some time
             await new Promise(resolve => setTimeout(resolve, 100));
-            console.log('[useAzureTTS] iOS Chrome detected - additional context stabilization');
+            console.log('[useAzureTTS] iOS Safari detected - context stabilization');
           }
         } catch(e) { 
           console.warn('[useAzureTTS] Failed to resume AudioContext:', e); 

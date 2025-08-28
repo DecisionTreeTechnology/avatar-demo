@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppShell } from './components/AppShell';
 import { ChatBar } from './components/ChatBar';
 import { useLLM, LLMMessage } from './hooks/useLLM';
@@ -6,6 +6,7 @@ import { useAzureTTS } from './hooks/useAzureTTS';
 import { useTalkingHead } from './hooks/useTalkingHead';
 import { testAudioPlayback } from './utils/mobileDebug';
 import { getIOSChromeWarningMessage, testIOSAudioCompatibility } from './utils/iosCompatibility';
+import { ensureIOSAudioCompatibility } from './utils/iosAudioFixes';
 
 export const App: React.FC = () => {
   const { chat, loading: llmLoading } = useLLM();
@@ -18,15 +19,32 @@ export const App: React.FC = () => {
   const [showIOSWarning, setShowIOSWarning] = useState(false);
   const busy = llmLoading || isSynthesizing || talkingHead.isSpeaking || isAvatarAudioPlaying;
 
+  // Debug busy state changes
+  useEffect(() => {
+    console.log('[App] Busy state changed:', {
+      busy,
+      llmLoading,
+      isSynthesizing,
+      talkingHeadSpeaking: talkingHead.isSpeaking,
+      isAvatarAudioPlaying
+    });
+  }, [busy, llmLoading, isSynthesizing, talkingHead.isSpeaking, isAvatarAudioPlaying]);
+
 
 
   // Initialize AudioContext on first user interaction (required for mobile)
   const initAudioContext = async () => {
     if (!audioContext) {
       try {
+        // Apply iOS-specific audio fixes first
+        await ensureIOSAudioCompatibility();
+        
         // Enhanced audio context initialization for iOS Chrome compatibility
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const ctx = new AudioContextClass();
+        const ctx = new AudioContextClass({
+          sampleRate: 48000, // iOS prefers 48kHz
+          latencyHint: 'interactive'
+        });
         
         // Critical: iOS Chrome requires explicit resume after creation
         if (ctx.state === 'suspended') {
@@ -78,11 +96,13 @@ export const App: React.FC = () => {
   };
 
   const handleAsk = async (question: string) => {
-    // Initialize audio context on first user interaction
-    await initAudioContext();
-    
-    const msgs = [...history, { role: 'user', content: question } as LLMMessage];
     try {
+      // Initialize audio context on first user interaction
+      await initAudioContext();
+      
+      const msgs = [...history, { role: 'user', content: question } as LLMMessage];
+      
+      // Get LLM response
       const completion = await chat(msgs);
       const reply = completion || '(No response)';
       
@@ -90,9 +110,7 @@ export const App: React.FC = () => {
       setAnswer(reply);
       
       // Ensure audio context is ready before TTS
-      // This is critical for iOS Chrome which may need additional activation
       if (audioContext && audioContext.state === 'suspended') {
-        console.log('[App] Re-activating AudioContext before TTS...');
         await audioContext.resume();
         
         // For iOS Chrome, add extra delay to ensure WebKit is ready
@@ -101,27 +119,30 @@ export const App: React.FC = () => {
         }
       }
       
-      console.log('[App] Starting TTS synthesis...');
+      // Generate speech
       const tts = await speakText(reply);
-      console.log('[App] TTS synthesis complete, starting avatar speech...');
       
       // Additional AudioContext check right before avatar speech
       const globalCtx = (window as any).globalAudioContext;
       if (globalCtx && globalCtx.state === 'suspended') {
-        console.log('[App] Global AudioContext suspended, resuming...');
         await globalCtx.resume();
       }
       
+      // Play avatar speech
       setIsAvatarAudioPlaying(true);
       await talkingHead.speak(tts.audio, tts.wordTimings);
       
-      // Keep the audio playing state for the actual duration of the audio
+      // Reset audio playing state
       setTimeout(() => {
         setIsAvatarAudioPlaying(false);
-      }, tts.audio.duration * 1000 + 500); // Add 500ms buffer
+      }, tts.audio.duration * 1000 + 500);
+      
     } catch (e) {
-      console.error('Error in handleAsk:', e);
+      console.error('[App] Error in handleAsk:', e);
       setIsAvatarAudioPlaying(false);
+      
+      // Show error to user
+      setAnswer(`Error: ${e instanceof Error ? e.message : 'Something went wrong'}`);
     }
   };
 

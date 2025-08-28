@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 interface ChatBarProps {
@@ -33,12 +33,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
   const [autoSendTimer, setAutoSendTimer] = useState<NodeJS.Timeout | null>(null);
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
   const [userWantsListening, setUserWantsListening] = useState(false);
-  const onSendRef = useRef(onSend);
   
-  // Keep onSend ref current
-  useEffect(() => {
-    onSendRef.current = onSend;
-  }, [onSend]);
   const {
     isListening,
     transcript,
@@ -68,7 +63,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
         // Small delay to let user see the text before sending
         setTimeout(() => {
           if (fullText.trim()) {
-            onSendRef.current(fullText.trim());
+            onSend(fullText.trim());
             setValue('');
             setLastSpeechTime(0);
           }
@@ -139,7 +134,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
         if (timeSinceLastSpeech >= 3000) {
           const text = value.trim();
           if (text && text.length > 5) {
-            onSendRef.current(text);
+            onSend(text);
             setValue('');
             setLastSpeechTime(0);
           }
@@ -161,13 +156,6 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
       }
     };
   }, [isListening, value, lastSpeechTime]); // Removed onSend to prevent re-renders
-
-  const send = () => {
-    if (!value.trim()) return;
-    onInteraction?.(); // Initialize audio context on user interaction
-    onSendRef.current(value);
-    setValue(''); // Clear the input after sending
-  };
 
   const toggleListening = async () => {
     // Initialize audio context on user interaction
@@ -219,7 +207,15 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
           placeholder={placeholder || 'Press on mic or type to share what is on your mind...'}
           disabled={disabled}
           onChange={e => setValue(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          onKeyDown={e => { 
+            if (e.key === 'Enter' && !e.shiftKey) { 
+              e.preventDefault(); 
+              if (!value.trim()) return;
+              onInteraction?.(); 
+              onSend(value); 
+              setValue(''); 
+            } 
+          }}
           onFocus={() => onInteraction?.()} // Initialize audio context on focus
           autoComplete="off"
           // iOS Chrome compatibility: Allow autocorrect and capitalization for better emoji/special char support
@@ -269,7 +265,12 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
       <button
         className="btn-base bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 min-h-[48px] text-base font-medium"
         disabled={disabled}
-        onClick={send}
+        onClick={() => {
+          if (!value.trim()) return;
+          onInteraction?.(); // Initialize audio context on user interaction
+          onSend(value); // Call directly instead of using ref
+          setValue(''); // Clear the input after sending
+        }}
       >{disabled ? busyLabel : 'Ask'}</button>
     </div>
   );

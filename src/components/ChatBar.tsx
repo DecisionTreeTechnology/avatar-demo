@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
-import { MicrophoneDebugPanel } from './MicrophoneDebugPanel';
 
 interface ChatBarProps {
   disabled?: boolean;
@@ -15,7 +14,6 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
   const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
   const [userWantsListening, setUserWantsListening] = useState(false);
-  const [showMicDebug, setShowMicDebug] = useState(false);
   
   const { 
     isListening, 
@@ -238,21 +236,9 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
               <strong>🎙️ Microphone Issue:</strong>
               <p className="mt-1">{speechError}</p>
             </div>
-            <button
-              onClick={() => setShowMicDebug(true)}
-              className="ml-2 text-red-600 hover:text-red-800 underline text-xs"
-            >
-              Debug
-            </button>
           </div>
         </div>
       )}
-      
-      {/* Microphone Debug Panel */}
-      <MicrophoneDebugPanel
-        isVisible={showMicDebug}
-        onClose={() => setShowMicDebug(false)}
-      />
     </div>
   );
 };

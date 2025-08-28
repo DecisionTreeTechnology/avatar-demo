@@ -176,6 +176,15 @@ export function useSpeechRecognition(
       return;
     }
 
+    // Check for iOS-specific requirements
+    const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+    const isSecureContext = window.isSecureContext;
+    
+    if (isIOS && !isSecureContext) {
+      setError('🔒 Microphone requires HTTPS on iOS. Please use Safari or an HTTPS connection.');
+      return;
+    }
+
     setError(null);
     setShouldRestart(true);
     setLastRestartTime(Date.now());
@@ -221,22 +230,32 @@ export function useSpeechRecognition(
 
     recognitionRef.current.onerror = (event: any) => {
       stopRecognitionTimer();
+      
+      // Check if we're on iOS for specific handling
+      const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+      const isSecureContext = window.isSecureContext;
+      
       // Handle different error types
       if (event.error === 'no-speech') {
         // Don't show error for no-speech - it's common and expected
-        // Just silently restart if user wants continuous listening
         setError(null);
         setIsListening(false);
         if (shouldRestart) {
           attemptRestart();
         }
       } else if (event.error === 'audio-capture') {
-        setError('Microphone access denied or not available.');
+        const errorMsg = isIOS && !isSecureContext 
+          ? 'Microphone requires HTTPS on iOS. Switch to Safari or use HTTPS.'
+          : 'Microphone access denied or not available.';
+        setError(errorMsg);
         setIsListening(false);
         setShouldRestart(false);
         setRetryCount(0);
       } else if (event.error === 'not-allowed') {
-        setError('Microphone access denied. Please allow microphone access.');
+        const errorMsg = isIOS && !isSecureContext
+          ? 'Microphone blocked. iOS requires HTTPS for microphone access.'
+          : 'Microphone access denied. Please allow microphone access.';
+        setError(errorMsg);
         setIsListening(false);
         setShouldRestart(false);
         setRetryCount(0);
@@ -254,7 +273,11 @@ export function useSpeechRecognition(
         setShouldRestart(false);
         setRetryCount(0);
       } else {
-        setError(null); // Don't show most errors to user
+        // Other errors - provide iOS-specific guidance
+        const errorMsg = isIOS 
+          ? `Speech recognition error: ${event.error}. Try Safari or HTTPS connection.`
+          : null;
+        setError(errorMsg); 
         setIsListening(false);
         if (shouldRestart) {
           attemptRestart();

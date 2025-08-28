@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { ChatBar } from './components/ChatBar';
-import { IOSDebugPanel } from './components/IOSDebugPanel';
 import { useLLM, LLMMessage } from './hooks/useLLM';
 import { useEnhancedAzureTTS } from './hooks/useEnhancedAzureTTS';
 import { useTalkingHead } from './hooks/useTalkingHead';
@@ -14,7 +13,6 @@ export const App: React.FC = () => {
   const [history, setHistory] = useState<LLMMessage[]>([{ role: 'system', content: 'You are a helpful assistant.' }]);
   const [showIOSWarning, setShowIOSWarning] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const busy = isAsking || llmLoading || isSynthesizing || talkingHead.isSpeaking;
 
@@ -139,26 +137,6 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* iOS Debug Panel Toggle Button */}
-        {/iPad|iPhone|iPod/i.test(navigator.userAgent) && (
-          <button
-            onClick={() => setShowDebugPanel(!showDebugPanel)}
-            className="absolute top-4 right-4 z-40 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
-          >
-            {showDebugPanel ? 'Hide Debug' : 'iOS Debug'}
-          </button>
-        )}
-
-        {/* iOS Debug Panel */}
-        {showDebugPanel && (
-          <div className="absolute top-16 left-4 right-4 z-30 max-h-96 overflow-auto">
-            <IOSDebugPanel 
-              isVisible={showDebugPanel} 
-              onClose={() => setShowDebugPanel(false)} 
-            />
-          </div>
-        )}
-        
         {/* Chat Interface - Fixed at bottom with proper mobile safe areas */}
         <div className="mobile-bottom-panel">
           <div className="p-4 pb-safe">

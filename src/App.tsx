@@ -1,24 +1,109 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppShell } from './components/AppShell';
 import { ChatBar } from './components/ChatBar';
+import { ChatHistory } from './components/ChatHistory';
 import { useLLM, LLMMessage } from './hooks/useLLM';
 import { useEnhancedAzureTTS } from './hooks/useEnhancedAzureTTS';
 import { useTalkingHead } from './hooks/useTalkingHead';
+import { useEmotionRecognition } from './hooks/useEmotionRecognition';
+import { usePersonalitySystem } from './hooks/usePersonalitySystem';
+import { ChatMessage } from './types/chat';
+import { isTestMode } from './utils/testUtils';
 
 export const App: React.FC = () => {
   const { chat, loading: llmLoading } = useLLM();
   const { speakText, isSynthesizing } = useEnhancedAzureTTS();
   const talkingHead = useTalkingHead();
-  const [answer, setAnswer] = useState('');
-  const [history, setHistory] = useState<LLMMessage[]>([{ role: 'system', content: 'You are a helpful assistant.' }]);
+  const emotionRecognition = useEmotionRecognition({
+    autoApplyEmotions: true,
+    autoTriggerGestures: true
+  });
+  const personalitySystem = usePersonalitySystem({
+    defaultPersonality: 'fertility_assistant',
+    autoApplyPersonality: true
+  });
+  const [history, setHistory] = useState<LLMMessage[]>([{ 
+    role: 'system', 
+    content: 'You are a caring, supportive, kind, and empathetic fertility assistant. Your primary role is to provide emotional support, encouragement, and helpful information for people on their fertility journey. Always respond with warmth, understanding, and compassion.' 
+  }]);
   const [showIOSWarning, setShowIOSWarning] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const busy = isAsking || llmLoading || isSynthesizing || talkingHead.isSpeaking;
+  const [conversationHistory, setConversationHistory] = useState<string[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [showAnimationControls, setShowAnimationControls] = useState(false);
+  const [isFirstInteraction, setIsFirstInteraction] = useState(true);
+  const [hasShownGreeting, setHasShownGreeting] = useState(false); // Track if greeting was shown
+
+  // Test mode: simulate ready state for faster testing
+  const isTestModeActive = isTestMode();
+  const busy = isAsking || llmLoading || (isSynthesizing && !isTestModeActive) || (talkingHead.isSpeaking && !isTestModeActive);
+
+  const avatarReady = isTestModeActive || talkingHead.isReady;
+  const avatarError = isTestModeActive ? null : talkingHead.error;
 
 
 
 
+
+  // Apply personality and scene to avatar when ready
+  useEffect(() => {
+    if (avatarReady && !isTestModeActive) {
+      personalitySystem.applyPersonalityToAvatar(talkingHead);
+      
+      // Apply scene background to avatar container
+      if (talkingHead.containerRef.current) {
+        personalitySystem.applySceneToAvatar(talkingHead.containerRef.current);
+      }
+      
+      // Show initial greeting for fertility assistant with a natural delay
+      if (false && isFirstInteraction && personalitySystem.currentPersonality === 'fertility_assistant' && !hasShownGreeting) {
+        console.log('[App] Showing initial greeting - this should only happen once');
+        setHasShownGreeting(true); // Mark greeting as shown IMMEDIATELY to prevent duplicates
+        
+        // First, perform a gentle welcome gesture
+        setTimeout(async () => {
+          try {
+            await talkingHead.performGesture('wave');
+          } catch (error) {
+            console.log('[App] Welcome gesture failed (non-critical):', error);
+          }
+        }, 1000);
+        
+        // Then show greeting text after avatar has gestured
+        setTimeout(() => {
+          // Use a simple, single greeting without any personality system modifications
+          const simpleGreeting = "Hello! I'm here to support you on your fertility journey. How are you feeling today?";
+          console.log('[App] Using simple greeting:', simpleGreeting);
+          
+          // Add greeting message to chat
+          const greetingMessage: ChatMessage = {
+            id: `greeting-${Date.now()}`,
+            text: simpleGreeting,
+            isUser: false,
+            timestamp: new Date()
+          };
+          setChatMessages(prev => {
+            console.log('[App] Current messages before adding greeting:', prev.length);
+            // Double-check we're not adding duplicate greetings
+            const hasExistingGreeting = prev.some(msg => msg.id.startsWith('greeting-'));
+            if (hasExistingGreeting) {
+              console.warn('[App] Preventing duplicate greeting');
+              return prev;
+            }
+            console.log('[App] Adding greeting to chat');
+            const newMessages = [...prev, greetingMessage];
+            console.log('[App] New messages array:', newMessages.length);
+            return newMessages;
+          });
+          
+          // DON'T automatically speak the greeting to prevent feedback loops
+          // User can choose to have it read if they want by clicking
+          
+        }, 2500); // 2.5 second delay for natural appearance
+      }
+    }
+  }, [avatarReady, isFirstInteraction, hasShownGreeting, isTestModeActive]);
 
   // Initialize AudioContext on first user interaction (required for mobile)
   const initAudioContext = async (): Promise<void> => {
@@ -49,14 +134,72 @@ export const App: React.FC = () => {
       setLastError(null);
       initAudioContext();
       
+      // Add user message to chat
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        text: question,
+        isUser: true,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, userMessage]);
+      
+      // Analyze user input for emotion and apply to avatar
+      console.log('[App] Analyzing user input emotion...');
+      const userEmotionAnalysis = await emotionRecognition.analyzeAndApply(question, talkingHead);
+      console.log('[App] User emotion analysis:', userEmotionAnalysis);
+      
+      // Add user message to conversation history
+      const newConversationHistory = [...conversationHistory, question];
+      
       const msgs = [...history, { role: 'user', content: question } as LLMMessage];
       
       // Get LLM response
       const completion = await chat(msgs);
-      const reply = completion || '(No response)';
+      let reply = completion || '(No response)';
+      
+      // Apply personality-based response modification
+      const modifiedReply = personalitySystem.modifyResponse(reply, {
+        // Never treat LLM responses as greetings - let them be natural
+        isGreeting: false,
+        needsEncouragement: userEmotionAnalysis.emotion.primaryEmotion === 'sad' || userEmotionAnalysis.sentiment === 'negative',
+        needsEmpathy: ['sad', 'confused', 'angry'].includes(userEmotionAnalysis.emotion.primaryEmotion),
+        userEmotion: userEmotionAnalysis.emotion.primaryEmotion,
+        userInput: question
+      });
+      
+      reply = modifiedReply;
+      
+      // Analyze LLM response for appropriate avatar emotion/gestures
+      console.log('[App] Analyzing LLM response emotion...');
+      const responseEmotionAnalysis = await emotionRecognition.analyzeAndApply(reply, talkingHead);
+      console.log('[App] Response emotion analysis:', responseEmotionAnalysis);
+      
+      // Update conversation history
+      const updatedHistory = [...newConversationHistory, reply];
+      setConversationHistory(updatedHistory);
+      
+      // Analyze overall conversation context
+      if (updatedHistory.length > 3) {
+        const conversationContext = emotionRecognition.analyzeConversation(updatedHistory.slice(-6)); // Last 6 messages
+        console.log('[App] Conversation context:', conversationContext);
+        
+        // Adjust avatar mood based on conversation energy if needed
+        if (conversationContext.conversationEnergy === 'high' && responseEmotionAnalysis.emotion.primaryEmotion === 'neutral') {
+          console.log('[App] Boosting emotion based on high conversation energy');
+          talkingHead.setEmotion('excited', 'normal');
+        }
+      }
       
       setHistory([...msgs, { role: 'assistant', content: reply }]);
-      setAnswer(reply);
+      
+      // Add assistant message to chat
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        text: reply,
+        isUser: false,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, assistantMessage]);
       
       // Use enhanced TTS with iOS support and retry logic
       try {
@@ -75,27 +218,72 @@ export const App: React.FC = () => {
       const errorMessage = e instanceof Error ? e.message : 'Something went wrong';
       setLastError(errorMessage);
       
-      // Show error to user
-      setAnswer(`Error: ${errorMessage}`);
+      // Show error emotion on avatar
+      talkingHead.setEmotion('confused', 'normal');
+      
+      // Apply personality to error message
+      const personalizedError = personalitySystem.modifyResponse(
+        `I'm sorry, I encountered an error: ${errorMessage}`,
+        { needsEmpathy: true }
+      );
+      
+      // Add error message to chat
+      const errorMessage_chat: ChatMessage = {
+        id: `error-${Date.now()}`,
+        text: personalizedError,
+        isUser: false,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, errorMessage_chat]);
     } finally {
       setIsAsking(false);
+      setIsFirstInteraction(false);
     }
   };
 
   return (
     <AppShell>
-      <div className="mobile-viewport flex flex-col">
-        {/* Avatar Section - Takes remaining space */}
-        <div className="flex-1 relative min-h-0 overflow-hidden">
-          <div ref={talkingHead.containerRef} className="absolute inset-0 mobile-avatar-container">
-            {!talkingHead.isReady && (
-              <div className="absolute inset-0 flex items-center justify-center z-20">
-                <div className="text-white text-sm animate-pulse">
-                  {talkingHead.error ? `Error: ${talkingHead.error}` : 'Loading avatar...'}
-                  <div className="text-xs mt-2 opacity-70">
-                    Container ref: {talkingHead.containerRef.current ? 'Connected' : 'Not connected'}
+      <div className="mobile-viewport flex flex-col landscape:flex-row landscape:h-full">
+        {/* Avatar Section - Takes remaining space, but leaves room for chat in portrait */}
+        <div className="flex-1 relative min-h-0 overflow-hidden portrait:pb-64 landscape:h-full landscape:flex landscape:items-center landscape:justify-center landscape:pb-0">
+          <div 
+            ref={talkingHead.containerRef} 
+            data-testid="avatar-container" 
+            key="avatar-container-unique"
+            className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-4/5 landscape:max-w-lg"
+          >
+            {!avatarReady && (
+              <div className="absolute inset-0 flex items-center justify-center z-20 bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur-sm">
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-600/40 to-pink-600/40 rounded-full mb-6 animate-caring-pulse">
+                    <svg className="w-10 h-10 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
                   </div>
+                  <div className="text-purple-100 text-lg font-medium mb-2">
+                    {avatarError ? '❌ Connection Issue' : '💝 Your Caring Assistant'}
+                  </div>
+                  {!avatarError && (
+                    <div className="text-purple-200/80 text-sm max-w-xs">
+                      Preparing personalized fertility support with empathy and care
+                    </div>
+                  )}
+                  {talkingHead.error && (
+                    <div className="text-red-300 text-sm max-w-xs">
+                      {talkingHead.error}
+                      <div className="mt-2 text-xs text-red-400">
+                        Please refresh the page to try again
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+            )}
+            
+            {/* Smooth entrance animation for avatar */}
+            {talkingHead.isReady && (
+              <div className="absolute inset-0 animate-fade-in">
+                {/* Avatar will appear here */}
               </div>
             )}
           </div>
@@ -139,13 +327,30 @@ export const App: React.FC = () => {
 
         {/* Chat Interface - Fixed at bottom with proper mobile safe areas */}
         <div className="mobile-bottom-panel">
-          <div className="p-4 pb-safe">
-            <div className="glass rounded-2xl p-4 space-y-3 max-w-2xl mx-auto">
-              {/* Debug Test Button */}
+          <div className="p-4 pb-safe landscape:p-3 landscape:pb-3 landscape:h-full landscape:flex landscape:flex-col h-full flex flex-col">
+            <div className="glass rounded-2xl max-w-2xl mx-auto landscape:max-w-full landscape:mx-0 landscape:flex-1 landscape:flex landscape:flex-col landscape:min-h-0 flex-1 flex flex-col portrait:min-h-[50vh] portrait:max-h-[75vh] gap-0 h-full">
+              {/* Welcome message when avatar is loading */}
+              {!avatarReady && !avatarError && (
+                <div className="p-4 bg-purple-900/20 border border-purple-600/30 rounded-lg mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-caring-pulse">
+                      <svg className="w-6 h-6 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm text-purple-200">Your caring assistant is preparing</h4>
+                      <p className="text-xs mt-1 text-purple-300/80">
+                        Setting up personalized fertility support just for you...
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {/* Error Display */}
               {lastError && (
-                <div className="p-3 bg-red-900/50 border border-red-600 rounded-lg text-red-300">
+                <div className="p-3 bg-red-900/50 border border-red-600 rounded-lg text-red-300 mb-4">
                   <div className="flex items-start justify-between">
                     <div>
                       <strong>❌ Error:</strong>
@@ -160,18 +365,122 @@ export const App: React.FC = () => {
                   </div>
                 </div>
               )}
-              
-              <ChatBar 
-                disabled={busy} 
-                onSend={handleAsk} 
-                busyLabel={llmLoading ? 'Thinking...' : 'Speaking...'} 
-                onInteraction={initAudioContext}
-              />
-              {answer && (
-                <div className="text-xs leading-relaxed max-h-24 sm:max-h-32 md:max-h-40 overflow-auto whitespace-pre-wrap border border-white/5 rounded-md p-3 bg-black/20">
-                  {answer}
-                </div>
-              )}
+
+              {/* Chat History - Takes up remaining space above input */}
+              <div className="flex-1 min-h-0 max-h-full overflow-hidden relative">
+                <ChatHistory 
+                  messages={chatMessages}
+                  onQuickAction={handleAsk}
+                  disabled={busy}
+                  isTyping={isAsking || llmLoading}
+                  hideWelcome={!avatarReady || !!lastError}
+                />
+              </div>
+              {/* Chat Input - Always visible at bottom */}
+              <div className="flex-shrink-0 bg-gray-900/50 p-3 rounded-lg border-t border-white/10">
+                <ChatBar 
+                  disabled={busy} 
+                  onSend={handleAsk} 
+                  busyLabel={llmLoading ? 'Thinking...' : 'Speaking...'} 
+                  onInteraction={initAudioContext}
+                  showSettings={showAnimationControls}
+                  onToggleSettings={() => setShowAnimationControls(!showAnimationControls)}
+                />
+                
+                {/* Animation Controls Expandable Section */}
+                {showAnimationControls && (
+                    <div className="mt-3 p-3 bg-gray-800/50 rounded-lg border border-white/10 max-h-96 overflow-y-auto">
+                      <div className="space-y-4">
+                        {/* Personality Selection */}
+                        <div>
+                          <label className="block text-xs font-medium mb-2 text-white/80">🤗 Personality</label>
+                          <div className="text-xs mb-2 text-gray-300">
+                            Current: <span className="text-blue-400">{personalitySystem.personalityTraits.name}</span>
+                          </div>
+                          <div className="grid grid-cols-1 gap-1">
+                            {personalitySystem.availablePersonalities.map((personality) => (
+                              <button
+                                key={personality}
+                                onClick={() => {
+                                  personalitySystem.setPersonality(personality);
+                                  personalitySystem.applyPersonalityToAvatar(talkingHead);
+                                }}
+                                className={`px-2 py-1 text-xs rounded transition-colors text-left ${
+                                  personalitySystem.currentPersonality === personality
+                                    ? 'bg-pink-600 text-white'
+                                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                }`}
+                                disabled={!talkingHead.isReady}
+                              >
+                                {personality.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Emotions */}
+                        <div>
+                          <label className="block text-xs font-medium mb-2 text-white/80">😊 Emotions</label>
+                          <div className="grid grid-cols-4 portrait:grid-cols-2 gap-1">
+                            {['neutral', 'happy', 'sad', 'angry', 'surprised', 'excited', 'confused', 'thinking'].map((emotion) => (
+                              <button
+                                key={emotion}
+                                onClick={() => {
+                                  if (talkingHead.isReady) {
+                                    talkingHead.setEmotion(emotion as any, 'normal');
+                                  }
+                                }}
+                                className="px-2 py-1 text-xs rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors disabled:opacity-50"
+                                disabled={!talkingHead.isReady}
+                              >
+                                {emotion}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Gestures */}
+                        <div>
+                          <label className="block text-xs font-medium mb-2 text-white/80">👋 Gestures</label>
+                          <div className="grid grid-cols-4 portrait:grid-cols-2 gap-1">
+                            {['wave', 'nod', 'shake_head', 'point', 'thumbs_up', 'shrug', 'thinking', 'excited'].map((gesture) => (
+                              <button
+                                key={gesture}
+                                onClick={async () => {
+                                  if (talkingHead.isReady) {
+                                    try {
+                                      await talkingHead.performGesture(gesture as any);
+                                    } catch (error) {
+                                      console.error('Failed to perform gesture:', error);
+                                    }
+                                  }
+                                }}
+                                className="px-2 py-1 text-xs rounded bg-purple-700 hover:bg-purple-600 text-white transition-colors disabled:opacity-50"
+                                disabled={!talkingHead.isReady}
+                              >
+                                {gesture.replace('_', ' ')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Avatar Status */}
+                        <div className="pt-2 border-t border-gray-600 text-xs">
+                          <div className={`flex items-center gap-2 ${talkingHead.isReady ? 'text-green-400' : 'text-red-400'}`}>
+                            <div className={`w-2 h-2 rounded-full ${talkingHead.isReady ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                            Avatar {talkingHead.isReady ? 'Ready' : 'Loading...'}
+                          </div>
+                          {talkingHead.isSpeaking && (
+                            <div className="flex items-center gap-2 text-blue-400 mt-1">
+                              <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div>
+                              Speaking...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

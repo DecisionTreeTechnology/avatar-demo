@@ -118,6 +118,7 @@ export function useSpeechRecognition(
         newRecognition.maxAlternatives = 1;
         
         newRecognition.onstart = () => {
+          console.log('[SpeechRecognition] Started listening');
           setIsListening(true);
           startRecognitionTimer();
         };
@@ -222,7 +223,14 @@ export function useSpeechRecognition(
       }
 
       if (finalTranscript) {
-        setTranscript(prev => prev + finalTranscript);
+        // Filter out very short utterances that might be echo/feedback
+        const trimmed = finalTranscript.trim();
+        if (trimmed.length >= 2) { // Require at least 2 characters
+          console.log('[SpeechRecognition] Accepting transcript:', trimmed);
+          setTranscript(prev => prev + finalTranscript);
+        } else {
+          console.log('[SpeechRecognition] Filtered short utterance:', trimmed);
+        }
       }
       setInterimTranscript(interimTranscript);
       startRecognitionTimer(); // Reset timer on new results
@@ -286,6 +294,7 @@ export function useSpeechRecognition(
     };
 
     recognitionRef.current.onend = () => {
+      console.log('[SpeechRecognition] Stopped listening');
       stopRecognitionTimer();
       setIsListening(false);
       setInterimTranscript('');
@@ -328,6 +337,7 @@ export function useSpeechRecognition(
   }, []);
 
   const forceStop = useCallback(() => {
+    console.log('[SpeechRecognition] Force stopping - clearing all timers and recognition');
     setShouldRestart(false);
     setRetryCount(0);
     
@@ -337,20 +347,25 @@ export function useSpeechRecognition(
       retryTimeoutRef.current = null;
     }
     
+    // Clear recognition timer
+    stopRecognitionTimer();
+    
     if (recognitionRef.current) {
       try {
         // Use abort() for immediate stop and also set onend to null to prevent restart
         recognitionRef.current.onend = null;
         recognitionRef.current.onerror = null;
+        recognitionRef.current.onresult = null;
         recognitionRef.current.abort();
         recognitionRef.current = null;
+        console.log('[SpeechRecognition] Recognition forcibly stopped and cleared');
       } catch (err) {
         console.log('Error force stopping recognition:', err);
       }
     }
     setIsListening(false);
     setInterimTranscript('');
-  }, []);
+  }, [stopRecognitionTimer]);
 
   // Cleanup on unmount
   useEffect(() => {

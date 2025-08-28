@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TalkingHead } from '@met4citizen/talkinghead';
+import { AvatarAnimationManager, EmotionType, GestureType, AnimationIntensity } from '../utils/avatarAnimationManager';
 
 interface UseTalkingHeadOptions {
   avatarUrl?: string;
@@ -21,23 +22,61 @@ export interface UseTalkingHeadResult {
   error: string | null;
   speak: (audio: AudioBuffer, timings?: SpeakWordTiming[]) => Promise<void>;
   resetCamera: () => void;
+  // Enhanced animation methods
+  setEmotion: (emotion: EmotionType, intensity?: AnimationIntensity) => void;
+  performGesture: (gesture: GestureType) => Promise<void>;
+  animationManager: AvatarAnimationManager | null;
 }
 
 export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingHeadResult {
   const { avatarUrl = '/avatar.glb', highDPI = true, ttsEndpoint = '/gtts/' } = options;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const headRef = useRef<TalkingHead | null>(null);
+  const animationManagerRef = useRef<AvatarAnimationManager | null>(null);
   const [isReady, setReady] = useState(false);
   const [isSpeaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  console.log('[useTalkingHead] Hook called with avatarUrl:', avatarUrl);
 
   useEffect(() => {
+    console.log('[useTalkingHead] useEffect triggered');
     let disposed = false;
     let handleResize: (() => void) | null = null;
     const init = async () => {
       if (!containerRef.current) {
         setTimeout(init, 100);
         return;
+      }
+      
+      console.log('[useTalkingHead] Initializing TalkingHead...');
+      
+      // Clear any existing content in the container to prevent duplicates
+      if (containerRef.current) {
+        const existingCanvases = containerRef.current.querySelectorAll('canvas');
+        if (existingCanvases.length > 0) {
+          console.log('[useTalkingHead] Cleaning up', existingCanvases.length, 'existing canvas elements');
+          existingCanvases.forEach(canvas => canvas.remove());
+        }
+        
+        // Also clear any other child elements that might be left over
+        const children = Array.from(containerRef.current.children);
+        children.forEach(child => {
+          if (child.tagName === 'CANVAS' || child.classList.contains('talking-head-element')) {
+            child.remove();
+          }
+        });
+      }
+      
+      // Dispose of any existing TalkingHead instance
+      if (headRef.current) {
+        console.log('[useTalkingHead] Disposing existing TalkingHead instance');
+        try {
+          headRef.current.dispose?.();
+        } catch (e) {
+          console.warn('[useTalkingHead] Error disposing existing instance:', e);
+        }
+        headRef.current = null;
       }
       
       let head: TalkingHead;
@@ -56,18 +95,27 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
       }
       headRef.current = head;
       
+      // Initialize animation manager
+      animationManagerRef.current = new AvatarAnimationManager(head);
+      
       // TalkingHead handles canvas creation internally when container is provided
       setTimeout(() => {
         const canvases = containerRef.current?.querySelectorAll('canvas');
+        console.log('[useTalkingHead] Found', canvases?.length || 0, 'canvas elements');
         if (canvases && canvases.length > 0) {
-          canvases.forEach((canvas) => {
-            // Force canvas to be visible and sized
-            canvas.style.display = 'block';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.minWidth = '300px';
-            canvas.style.minHeight = '400px';
-          });
+          // Only style the first canvas to avoid duplicates
+          const canvas = canvases[0];
+          canvas.style.display = 'block';
+          canvas.style.width = '100%';
+          canvas.style.height = '100%';
+          canvas.style.minWidth = '300px';
+          canvas.style.minHeight = '400px';
+          
+          // Hide any additional canvases that might be duplicates
+          for (let i = 1; i < canvases.length; i++) {
+            console.warn('[useTalkingHead] Hiding duplicate canvas', i);
+            canvases[i].style.display = 'none';
+          }
         }
       }, 250);
 
@@ -102,7 +150,18 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     return () => {
       disposed = true;
       if (handleResize) try { window.removeEventListener('resize', handleResize); } catch {}
-      try { headRef.current?.dispose?.(); } catch {}
+      // Cleanup animation manager
+      try { animationManagerRef.current?.cleanup?.(); } catch {}
+      // Dispose of the TalkingHead instance
+      try { 
+        headRef.current?.dispose?.(); 
+        headRef.current = null;
+      } catch {}
+      // Clear any remaining canvas elements
+      if (containerRef.current) {
+        const canvases = containerRef.current.querySelectorAll('canvas');
+        canvases.forEach(canvas => canvas.remove());
+      }
     };
   }, [avatarUrl, highDPI, ttsEndpoint]);
 
@@ -204,5 +263,27 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     // future enhancement - reposition camera
   }, []);
 
-  return { containerRef, head: headRef.current, isReady, isSpeaking, error, speak, resetCamera };
+  // Enhanced animation methods
+  const setEmotion = useCallback((emotion: EmotionType, intensity?: AnimationIntensity) => {
+    animationManagerRef.current?.setEmotion(emotion, intensity);
+  }, []);
+
+  const performGesture = useCallback(async (gesture: GestureType) => {
+    if (animationManagerRef.current) {
+      await animationManagerRef.current.performGesture(gesture);
+    }
+  }, []);
+
+  return { 
+    containerRef, 
+    head: headRef.current, 
+    isReady, 
+    isSpeaking, 
+    error, 
+    speak, 
+    resetCamera,
+    setEmotion,
+    performGesture,
+    animationManager: animationManagerRef.current
+  };
 }

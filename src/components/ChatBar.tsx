@@ -7,9 +7,11 @@ interface ChatBarProps {
   onSend: (text: string) => void;
   busyLabel?: string;
   onInteraction?: () => Promise<void> | void;
+  showSettings?: boolean;
+  onToggleSettings?: () => void;
 }
 
-export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend, busyLabel = 'Working...', onInteraction }) => {
+export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend, busyLabel = 'Working...', onInteraction, showSettings = false, onToggleSettings }) => {
   const [value, setValue] = useState('');
   const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
@@ -151,11 +153,11 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
   const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
 
   return (
-    <div className="flex gap-3 items-center w-full relative">
-      <div className="flex-1 relative">
+    <div className="flex gap-3 items-center flex-1 relative landscape:flex-col landscape:gap-4">
+      <div className="flex-1 relative landscape:w-full">
         <input
           type="text"
-          className="w-full input-pill text-base min-h-[48px]"
+          className="w-full input-pill text-base min-h-[48px] landscape:min-h-[44px] landscape:text-sm"
           value={displayValue}
           placeholder={placeholder || 'Press on mic or type to share what is on your mind...'}
           disabled={disabled}
@@ -178,56 +180,76 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
         />
       </div>
       
-      {/* Microphone button - separate from input */}
-      {isSupported && (
+      {/* Button row for landscape mode */}
+      <div className="flex gap-3 landscape:w-full landscape:justify-center">
+        {/* Microphone button - separate from input */}
+        {isSupported && (
+          <button
+            type="button"
+            className={`p-3 rounded-full transition-colors min-w-[48px] min-h-[48px] flex items-center justify-center landscape:min-w-[52px] landscape:min-h-[52px] ${
+              userWantsListening 
+                ? (isListening 
+                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
+                    : 'bg-orange-500 hover:bg-orange-600 text-white animate-pulse'
+                  )
+                : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+            }`}
+            onClick={toggleListening}
+            disabled={false}
+            title={
+              userWantsListening 
+                  ? (isListening 
+                      ? 'Click to stop listening' 
+                      : 'Waiting to start... Click to cancel if stuck'
+                    )
+                  : 'Click to start voice input'
+            }
+          >
+            {isListening ? (
+              <svg className="w-6 h-6 landscape:w-7 landscape:h-7" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="8" fill="currentColor" />
+                <circle cx="12" cy="12" r="4" fill="white" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6 landscape:w-7 landscape:h-7" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                <path d="M12 1c-1.66 0-3 1.34-3 3v6c0 1.66 1.34 3 3 3s3-1.34 3-3V4c0-1.66-1.34-3-3-3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+            )}
+          </button>
+        )}
+        
         <button
-          type="button"
-          className={`p-3 rounded-full transition-colors min-w-[48px] min-h-[48px] flex items-center justify-center ${
-            userWantsListening 
-              ? (isListening 
-                  ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
-                  : 'bg-orange-500 hover:bg-orange-600 text-white animate-pulse'
-                )
-              : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
-          }`}
-          onClick={toggleListening}
-          disabled={false}
-          title={
-            userWantsListening 
-              ? (isListening 
-                  ? 'Click to stop listening' 
-                  : 'Waiting to start... Click to cancel if stuck'
-                )
-              : 'Click to start voice input'
-          }
-        >
-          {isListening ? (
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="8" fill="currentColor" />
-              <circle cx="12" cy="12" r="4" fill="white" />
+          data-testid="ask-button"
+          className="btn-base bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 min-h-[48px] text-base font-medium landscape:px-8 landscape:py-3 landscape:min-h-[52px] landscape:text-base landscape:flex-1"
+          disabled={disabled}
+          onClick={() => {
+            if (!value.trim()) {
+              return;
+            }
+            onInteraction?.();
+            onSend(value); // Call directly instead of using ref
+            setValue(''); // Clear the input after sending
+          }}
+        >{disabled ? busyLabel : 'Ask'}</button>
+        
+        {/* Settings Button */}
+        {onToggleSettings && (
+          <button
+            onClick={onToggleSettings}
+            className={`p-3 rounded-full transition-colors min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px] flex items-center justify-center landscape:min-w-[52px] landscape:min-h-[52px] landscape:max-w-[52px] landscape:max-h-[52px] ${
+              showSettings 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+            title="Toggle Animation Controls"
+          >
+            <svg className="w-5 h-5 landscape:w-6 landscape:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
             </svg>
-          ) : (
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
-              <path d="M12 1c-1.66 0-3 1.34-3 3v6c0 1.66 1.34 3 3 3s3-1.34 3-3V4c0-1.66-1.34-3-3-3z"/>
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-            </svg>
-          )}
-        </button>
-      )}
-      
-      <button
-        data-testid="ask-button"
-        className="btn-base bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 min-h-[48px] text-base font-medium"
-        disabled={disabled}
-        onClick={() => {
-          if (!value.trim()) {
-            return;
-          }
-          onInteraction?.();
-          onSend(value); // Call directly instead of using ref
-          setValue(''); // Clear the input after sending
-        }}
-      >{disabled ? busyLabel : 'Ask'}</button>
+          </button>
+        )}
+      </div>
       
       {/* Microphone Error Display */}
       {speechError && (

@@ -154,6 +154,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
     <div className="flex gap-3 items-center w-full relative">
       <div className="flex-1 relative">
         <input
+          type="text"
           className="w-full input-pill text-base min-h-[48px]"
           value={displayValue}
           placeholder={placeholder || 'Press on mic or type to share what is on your mind...'}

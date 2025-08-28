@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
-import { iosDebugger } from '../utils/iosDebugger';
 
 interface AzureTTSOptions {
   key?: string;
@@ -34,11 +33,8 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
 
   // Get iOS-specific AudioContext configuration
   const getIOSAudioConfig = (): IOSAudioContextConfig => {
-    const debugInfo = iosDebugger.getDebugInfo();
-    const isIOSChrome = debugInfo?.device.isIOSChrome || 
-      (/iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent));
-    const isIOSSafari = debugInfo?.device.isIOSSafari || 
-      (/iPad|iPhone|iPod/i.test(navigator.userAgent) && /Safari/i.test(navigator.userAgent) && !/CriOS/i.test(navigator.userAgent));
+    const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
+    const isIOSSafari = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /Safari/i.test(navigator.userAgent) && !/CriOS/i.test(navigator.userAgent);
 
     if (isIOSChrome) {
       return {
@@ -139,8 +135,7 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
   // Enhanced audio testing with iOS-specific validations
   const validateAudioPlayback = async (ctx: AudioContext, _buffer: AudioBuffer): Promise<boolean> => {
     try {
-      const debugInfo = iosDebugger.getDebugInfo();
-      const isIOS = debugInfo?.device.isIOS || /iPad|iPhone|iPod/i.test(navigator.userAgent);
+      const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
       
       if (!isIOS) {
         // Skip validation for non-iOS devices
@@ -213,11 +208,6 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
     
     try {
       console.log('[Enhanced TTS] Starting synthesis for text:', text.substring(0, 50) + '...');
-      
-      // Update debug info
-      if (iosDebugger.getDebugInfo()) {
-        await iosDebugger.startDebugging();
-      }
       
       const words: string[] = [];
       const wtimes: number[] = [];
@@ -309,10 +299,12 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
       
       // Provide iOS-specific error guidance
       if (e.message?.includes('AudioContext')) {
-        const debugInfo = iosDebugger.getDebugInfo();
-        if (debugInfo?.device.isIOSChrome) {
+        const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
+        const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+        
+        if (isIOSChrome) {
           throw new Error('iOS Chrome audio issue detected. Try enabling "Request Desktop Site" in Chrome menu, or use Safari for better compatibility.');
-        } else if (debugInfo?.device.isIOS) {
+        } else if (isIOS) {
           throw new Error('iOS audio activation failed. Ensure you have interacted with the page (tap/click) before using audio features.');
         }
       }

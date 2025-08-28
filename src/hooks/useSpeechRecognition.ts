@@ -45,6 +45,7 @@ export function useSpeechRecognition(
   
   const recognitionRef = useRef<any>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Check if speech recognition is supported
   const isSupported = typeof window !== 'undefined' && 
@@ -56,6 +57,26 @@ export function useSpeechRecognition(
     setError(null);
     setRetryCount(0);
   }, []);
+
+  const stopRecognitionTimer = useCallback(() => {
+    if (recognitionTimerRef.current) {
+      clearTimeout(recognitionTimerRef.current);
+      recognitionTimerRef.current = null;
+    }
+  }, []);
+
+  const startRecognitionTimer = useCallback(() => {
+    stopRecognitionTimer();
+    recognitionTimerRef.current = setTimeout(() => {
+      if (isListening) {
+        // If recognition is active but no result, it might be stuck.
+        // Force a restart.
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+      }
+    }, 5000); // 5 seconds timeout
+  }, [isListening, stopRecognitionTimer]);
 
   const attemptRestart = useCallback(() => {
     if (!shouldRestart) return;
@@ -96,7 +117,10 @@ export function useSpeechRecognition(
         newRecognition.lang = language;
         newRecognition.maxAlternatives = 1;
         
-        newRecognition.onstart = () => setIsListening(true);
+        newRecognition.onstart = () => {
+          setIsListening(true);
+          startRecognitionTimer();
+        };
         newRecognition.onresult = (event: any) => {
           let finalTranscript = '';
           let interimTranscript = '';
@@ -114,9 +138,11 @@ export function useSpeechRecognition(
             setTranscript(prev => prev + finalTranscript);
           }
           setInterimTranscript(interimTranscript);
+          startRecognitionTimer(); // Reset timer on new results
         };
         
         newRecognition.onerror = (event: any) => {
+          stopRecognitionTimer();
           if (event.error === 'no-speech' || event.error === 'network') {
             setError(null);
             setIsListening(false);
@@ -128,6 +154,7 @@ export function useSpeechRecognition(
         };
         
         newRecognition.onend = () => {
+          stopRecognitionTimer();
           setIsListening(false);
           setInterimTranscript('');
         };
@@ -141,7 +168,7 @@ export function useSpeechRecognition(
         }
       }
     }, 1000 + (retryCount * 500)); // Exponential backoff
-  }, [shouldRestart, lastRestartTime, retryCount, isListening, isSupported, continuous, interimResults, language]);
+  }, [shouldRestart, lastRestartTime, retryCount, isListening, isSupported, continuous, interimResults, language, startRecognitionTimer, stopRecognitionTimer]);
 
   const startListening = useCallback(() => {
     if (!isSupported) {
@@ -169,6 +196,7 @@ export function useSpeechRecognition(
 
     recognitionRef.current.onstart = () => {
       setIsListening(true);
+      startRecognitionTimer();
     };
 
     recognitionRef.current.onresult = (event: any) => {
@@ -188,9 +216,11 @@ export function useSpeechRecognition(
         setTranscript(prev => prev + finalTranscript);
       }
       setInterimTranscript(interimTranscript);
+      startRecognitionTimer(); // Reset timer on new results
     };
 
     recognitionRef.current.onerror = (event: any) => {
+      stopRecognitionTimer();
       // Handle different error types
       if (event.error === 'no-speech') {
         // Don't show error for no-speech - it's common and expected
@@ -233,6 +263,7 @@ export function useSpeechRecognition(
     };
 
     recognitionRef.current.onend = () => {
+      stopRecognitionTimer();
       setIsListening(false);
       setInterimTranscript('');
       
@@ -250,12 +281,11 @@ export function useSpeechRecognition(
       setShouldRestart(false);
       setRetryCount(0);
     }
-  }, [continuous, interimResults, language, isSupported]);
+  }, [continuous, interimResults, language, isSupported, attemptRestart, startRecognitionTimer, stopRecognitionTimer]);
 
   const stopListening = useCallback(() => {
     setShouldRestart(false);
     setRetryCount(0);
-    setIsListening(false); // Immediately set to false
     
     // Clear retry timeout
     if (retryTimeoutRef.current) {
@@ -264,20 +294,14 @@ export function useSpeechRecognition(
     }
     
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort(); // Use abort for immediate stop
-        recognitionRef.current = null; // Clear the reference
-      } catch (err) {
-        console.log('Error stopping recognition:', err);
-      }
+      recognitionRef.current.stop();
     }
+    setIsListening(false); // Immediately set to false
   }, []);
 
   const forceStop = useCallback(() => {
     setShouldRestart(false);
     setRetryCount(0);
-    setIsListening(false);
-    setInterimTranscript('');
     
     // Clear retry timeout
     if (retryTimeoutRef.current) {
@@ -296,19 +320,25 @@ export function useSpeechRecognition(
         console.log('Error force stopping recognition:', err);
       }
     }
+    setIsListening(false);
+    setInterimTranscript('');
   }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      stopRecognitionTimer();
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
       }
     };
-  }, []);
+  }, [stopRecognitionTimer]);
 
   return {
     isListening,

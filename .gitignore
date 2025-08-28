@@ -30,3 +30,11 @@ pnpm-debug.log*
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Debug and development files
+*.log
+ios-debug.sh
+setup-https.sh
+src/components/*DebugPanel.tsx
+src/utils/iosDebugger.ts
+tests/ios-debug.spec.ts*

@@ -25,3 +25,8 @@ pnpm-debug.log*
 
 # Misc
 *.tgz
+
+# Testing
+test-results/
+playwright-report/
+playwright/.cache/

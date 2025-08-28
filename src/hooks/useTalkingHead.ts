@@ -114,13 +114,35 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     setSpeaking(true);
     
     try {
-      // Create audio object for TalkingHead
+      // Enhanced mobile audio compatibility
+      const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
+      const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        console.log('[useTalkingHead] Mobile device detected' + (isIOSChrome ? ' (iOS Chrome)' : '') + ', checking audio context...');
+        
+        // Ensure global audio context is available and active
+        const globalCtx = (window as any).globalAudioContext;
+        if (globalCtx && globalCtx.state === 'suspended') {
+          console.log('[useTalkingHead] Resuming suspended AudioContext...');
+          await globalCtx.resume();
+          
+          // iOS Chrome may need additional time for WebKit to activate
+          if (isIOSChrome) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        }
+      }
+      
+      // Create audio object for TalkingHead with enhanced timing
       const audioObj = {
         audio: audioBuffer,
         words: timings?.map(t => t.word) || [],
         wtimes: timings?.map(t => t.start) || [],
         wdurations: timings?.map(t => t.end - t.start) || []
       };
+      
+      console.log('[useTalkingHead] Starting avatar speech with audio duration:', audioBuffer.duration);
       
       // Use promise-based approach to better track completion
       await new Promise<void>((resolve, reject) => {
@@ -132,8 +154,14 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
           }
         };
         
-        // Set up timeout as fallback
-        const maxDuration = Math.max(audioBuffer.duration * 1000 + 1000, 5000); // At least 5 seconds
+        // Adjust timeout for mobile devices - iOS Chrome may need more time
+        const baseDuration = audioBuffer.duration * 1000;
+        const mobileBuffer = isMobile ? 2000 : 1000; // Extra buffer for mobile
+        const iosBuffer = isIOSChrome ? 1000 : 0; // Additional buffer for iOS Chrome
+        const maxDuration = Math.max(baseDuration + mobileBuffer + iosBuffer, 5000);
+        
+        console.log('[useTalkingHead] Setting timeout for', maxDuration, 'ms (mobile:', isMobile, ', iOS Chrome:', isIOSChrome, ')');
+        
         const timeoutId = setTimeout(() => {
           console.log('[useTalkingHead] speak timeout reached');
           cleanup();
@@ -143,7 +171,9 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         try {
           // Check if speakAudio method exists and call it
           if (typeof headRef.current?.speakAudio === 'function') {
+            console.log('[useTalkingHead] Calling speakAudio...');
             headRef.current.speakAudio(audioObj, {}, () => {
+              console.log('[useTalkingHead] speakAudio callback fired');
               clearTimeout(timeoutId);
               cleanup();
               resolve();

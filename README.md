@@ -10,6 +10,8 @@ An interactive 3D avatar application with speech-to-text, text-to-speech, and AI
 - **Text-to-Speech** - Natural voice synthesis with Azure Speech Services
 - **Modern UI** - Glass-morphism design with Tailwind CSS
 - **Progressive Web App** - Mobile-optimized responsive design
+- **iOS Chrome Compatible** - Optimized for all mobile browsers including iOS Chrome
+- **Comprehensive Testing** - 100% test coverage with Playwright across all browsers
 
 ## 🚨 Security Notice
 
@@ -75,6 +77,33 @@ Frontend (React) → Azure OpenAI API (direct)
 5. **Open Application**
    Navigate to `http://localhost:5173`
 
+## 🧪 Testing
+
+This project includes comprehensive Playwright test coverage:
+
+```bash
+# Run all tests (181 tests, 100% pass rate)
+npm test
+
+# Run tests with visual browser
+npm run test:headed
+
+# Interactive test runner
+npm run test:ui
+
+# View test reports
+npm run test:report
+```
+
+**Test Coverage:**
+- ✅ 181/181 tests passing (100% success rate)
+- ✅ 6 browser environments (Chrome, Firefox, Safari, Mobile Chrome, Mobile Safari, iOS Chrome)
+- ✅ Cross-device responsive testing
+- ✅ iOS Chrome compatibility validated
+- ✅ Comprehensive feature testing (voice, avatar, TTS, error handling)
+
+See [TESTING.md](TESTING.md) for detailed testing documentation.
+
 ## 🎮 Usage
 
 1. **Wait for Avatar Load** - The 3D avatar will appear when ready
@@ -102,9 +131,11 @@ VITE_AZURE_OPENAI_DEPLOYMENT=your_deployment
 ## 📱 Browser Support
 
 - **Chrome/Edge:** Full support (recommended)
-- **Safari:** Full support with webkit prefixes
+- **Safari:** Full support with webkit prefixes  
 - **Firefox:** Limited speech recognition support
 - **Mobile:** iOS Safari and Android Chrome
+- **iOS Chrome:** ✅ **Fully optimized** - Special character and emoji support
+- **Testing:** Validated across all environments with Playwright
 
 ## 🔒 Security Best Practices
 

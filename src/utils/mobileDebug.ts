@@ -128,26 +128,58 @@ export async function testAudioPlayback(): Promise<boolean> {
   try {
     const audioContext = (window as any).globalAudioContext || new (window.AudioContext || (window as any).webkitAudioContext)();
     
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
+    // Store globally for reuse
+    if (!(window as any).globalAudioContext) {
+      (window as any).globalAudioContext = audioContext;
     }
     
-    // Create a short test tone
-    const buffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.1, audioContext.sampleRate);
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+      console.log('[MobileDebug] AudioContext resumed for test, state:', audioContext.state);
+    }
+    
+    // Enhanced test for iOS Chrome compatibility
+    const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
+    
+    // Create a short test tone - even quieter for iOS Chrome
+    const duration = isIOSChrome ? 0.05 : 0.1; // 50ms for iOS Chrome, 100ms for others
+    const buffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
     const data = buffer.getChannelData(0);
+    
+    // Generate a very quiet test tone
     for (let i = 0; i < data.length; i++) {
-      data[i] = Math.sin(2 * Math.PI * 440 * i / audioContext.sampleRate) * 0.1; // 440Hz tone at low volume
+      data[i] = Math.sin(2 * Math.PI * 440 * i / audioContext.sampleRate) * (isIOSChrome ? 0.01 : 0.05);
     }
     
     const source = audioContext.createBufferSource();
     source.buffer = buffer;
-    source.connect(audioContext.destination);
+    
+    // For iOS Chrome, use additional gain node for better control
+    if (isIOSChrome) {
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = 0.01; // Very quiet
+      source.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+    } else {
+      source.connect(audioContext.destination);
+    }
+    
     source.start();
     
-    console.log('[MobileDebug] Audio test playback started');
+    // Wait for playback to complete
+    await new Promise(resolve => setTimeout(resolve, duration * 1000 + 100));
+    
+    console.log('[MobileDebug] Audio test playback completed successfully' + 
+      (isIOSChrome ? ' (iOS Chrome compatible)' : ''));
     return true;
   } catch (error) {
     console.error('[MobileDebug] Audio test failed:', error);
+    
+    // Provide specific guidance for iOS Chrome
+    if (/iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent)) {
+      console.warn('[MobileDebug] iOS Chrome detected - if audio doesn\'t work, try "Request Desktop Site" option');
+    }
+    
     return false;
   }
 }

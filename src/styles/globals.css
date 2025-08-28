@@ -82,6 +82,53 @@ body {
   }
 }
 
+/* Enhanced iOS Chrome compatibility */
+@supports (-webkit-touch-callout: none) {
+  /* iOS WebKit specific (both Safari and Chrome use WebKit) */
+  .mobile-avatar-container {
+    /* Force hardware acceleration for better 3D rendering */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    perspective: 1000px;
+    -webkit-perspective: 1000px;
+  }
+  
+  .mobile-avatar-container canvas {
+    /* Optimize WebKit canvas rendering */
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+  }
+  
+  /* Audio context activation visual feedback */
+  .audio-context-ready .mobile-avatar-container {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+  }
+  
+  .audio-context-pending .mobile-avatar-container {
+    opacity: 0.7;
+  }
+}
+
+/* iOS Chrome Desktop Mode detection */
+@media screen and (min-width: 1024px) and (-webkit-min-device-pixel-ratio: 2) {
+  /* Likely iOS Chrome in desktop mode */
+  .ios-chrome-desktop-mode {
+    /* Full desktop experience */
+    .mobile-viewport {
+      padding-bottom: 120px;
+    }
+    
+    .mobile-avatar-container {
+      /* Better performance in desktop mode */
+      transform: none;
+    }
+  }
+}
+
 /* Android specific fixes */
 @media screen and (max-width: 414px) and (max-height: 896px) {
   /* Small Android devices like Galaxy M31s */

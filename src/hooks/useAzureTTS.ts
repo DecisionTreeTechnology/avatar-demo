@@ -71,22 +71,33 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
         throw new Error('Azure synthesis produced no audio');
       }
       
-      // Create or get existing AudioContext with iOS Chrome compatibility
+      // Create or get existing AudioContext with enhanced iOS Chrome compatibility
       let audioCtx = (window as any).globalAudioContext;
       if (!audioCtx) {
-        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // Use webkitAudioContext specifically for iOS Chrome/Safari
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        audioCtx = new AudioContextClass();
         (window as any).globalAudioContext = audioCtx;
         console.log('[useAzureTTS] Created new global AudioContext');
       }
       
-      // Resume AudioContext if suspended (browser autoplay policy)
-      // This is especially important for iOS Chrome which has strict autoplay policies
+      // Enhanced AudioContext management for iOS Chrome
+      // iOS Chrome (WebKit) requires explicit user activation and careful state management
       if (audioCtx.state === 'suspended') {
         try { 
           await audioCtx.resume(); 
           console.log('[useAzureTTS] AudioContext resumed, state:', audioCtx.state);
+          
+          // For iOS Chrome, we need to ensure the context is truly ready
+          // WebKit sometimes reports 'running' but audio still doesn't work
+          if (/iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent)) {
+            // Wait a bit longer for iOS Chrome WebKit to be ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log('[useAzureTTS] iOS Chrome detected - additional context stabilization');
+          }
         } catch(e) { 
           console.warn('[useAzureTTS] Failed to resume AudioContext:', e); 
+          throw new Error('Audio context activation failed - this often happens without user interaction on iOS');
         }
       }
       
@@ -108,23 +119,47 @@ export function useAzureTTS(opts: AzureTTSOptions = {}) {
       
       console.log('[useAzureTTS] Word timings:', wordTimings.slice(0, 5), '... total:', wordTimings.length);
       
-      // Test audio playback on mobile to ensure it works
+      // Enhanced mobile audio compatibility test
       // iOS Chrome uses WebKit engine so same restrictions as Safari apply
       if (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent)) {
         const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
-        console.log('[useAzureTTS] Mobile device detected' + (isIOSChrome ? ' (iOS Chrome)' : '') + ', testing audio playback...');
+        const isIOSSafari = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /Safari/i.test(navigator.userAgent) && !/CriOS/i.test(navigator.userAgent);
+        
+        console.log('[useAzureTTS] Mobile device detected' + 
+          (isIOSChrome ? ' (iOS Chrome)' : '') + 
+          (isIOSSafari ? ' (iOS Safari)' : '') + ', testing audio playback...');
+        
         try {
+          // For iOS Chrome/Safari, we need to ensure the audio actually works
+          // by testing with a very short silent audio first
           const testSource = audioCtx.createBufferSource();
           testSource.buffer = audioBuffer;
           const gainNode = audioCtx.createGain();
-          gainNode.gain.value = 0.05; // Very quiet test for iOS Chrome
+          
+          // Use even quieter volume for iOS Chrome to prevent unwanted sounds
+          gainNode.gain.value = isIOSChrome ? 0.01 : 0.05;
+          
           testSource.connect(gainNode);
           gainNode.connect(audioCtx.destination);
+          
+          // For iOS Chrome, use an even shorter test
+          const testDuration = isIOSChrome ? 0.05 : 0.1;
           testSource.start();
-          testSource.stop(audioCtx.currentTime + 0.1); // Play just 100ms
-          console.log('[useAzureTTS] Mobile audio test successful' + (isIOSChrome ? ' (iOS Chrome compatible)' : ''));
+          testSource.stop(audioCtx.currentTime + testDuration);
+          
+          // Wait for the test to complete
+          await new Promise(resolve => setTimeout(resolve, testDuration * 1000 + 50));
+          
+          console.log('[useAzureTTS] Mobile audio test successful' + 
+            (isIOSChrome ? ' (iOS Chrome compatible)' : '') +
+            (isIOSSafari ? ' (iOS Safari compatible)' : ''));
+            
         } catch (e) {
           console.warn('[useAzureTTS] Mobile audio test failed:', e);
+          if (isIOSChrome) {
+            console.warn('[useAzureTTS] iOS Chrome may require "Request Desktop Site" for full audio compatibility');
+          }
+          // Don't throw here - let the actual playback attempt proceed
         }
       }
       

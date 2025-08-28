@@ -5,6 +5,7 @@ import { useLLM, LLMMessage } from './hooks/useLLM';
 import { useAzureTTS } from './hooks/useAzureTTS';
 import { useTalkingHead } from './hooks/useTalkingHead';
 import { testAudioPlayback } from './utils/mobileDebug';
+import { getIOSChromeWarningMessage, testIOSAudioCompatibility } from './utils/iosCompatibility';
 
 export const App: React.FC = () => {
   const { chat, loading: llmLoading } = useLLM();
@@ -14,6 +15,7 @@ export const App: React.FC = () => {
   const [history, setHistory] = useState<LLMMessage[]>([{ role: 'system', content: 'You are a helpful assistant.' }]);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [isAvatarAudioPlaying, setIsAvatarAudioPlaying] = useState(false);
+  const [showIOSWarning, setShowIOSWarning] = useState(false);
   const busy = llmLoading || isSynthesizing || talkingHead.isSpeaking || isAvatarAudioPlaying;
 
 
@@ -22,19 +24,55 @@ export const App: React.FC = () => {
   const initAudioContext = async () => {
     if (!audioContext) {
       try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // Enhanced audio context initialization for iOS Chrome compatibility
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioContextClass();
+        
+        // Critical: iOS Chrome requires explicit resume after creation
         if (ctx.state === 'suspended') {
           await ctx.resume();
+          console.log('[App] AudioContext resumed after creation, state:', ctx.state);
         }
-        (window as any).globalAudioContext = ctx; // Store globally for TTS hook
+        
+        // Store globally for TTS hook and ensure it's accessible
+        (window as any).globalAudioContext = ctx;
         setAudioContext(ctx);
-      
-      // Test audio playback on mobile devices
-      if (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent)) {
-        await testAudioPlayback();
-      }
+        
+        // Enhanced mobile audio testing with iOS Chrome specific handling
+        if (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent)) {
+          console.log('[App] Mobile device detected, running enhanced audio test...');
+          const audioTestResult = await testAudioPlayback();
+          
+          const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
+          if (!audioTestResult && isIOSChrome) {
+            console.warn('[App] iOS Chrome audio test failed - user may need to enable "Request Desktop Site"');
+            setShowIOSWarning(true);
+          }
+          
+          // Additional iOS compatibility test
+          if (isIOSChrome) {
+            const iosTest = await testIOSAudioCompatibility();
+            if (!iosTest.success || iosTest.needsDesktopMode) {
+              console.log('[App] iOS Chrome compatibility test:', iosTest.message);
+              setShowIOSWarning(true);
+            }
+          }
+        }
+        
+        console.log('[App] AudioContext initialization complete, state:', ctx.state);
       } catch (error) {
         console.error('[App] Failed to initialize AudioContext:', error);
+        // Don't throw - let the app continue and show error feedback
+      }
+    } else {
+      // Ensure existing context is running
+      if (audioContext.state === 'suspended') {
+        try {
+          await audioContext.resume();
+          console.log('[App] Existing AudioContext resumed, state:', audioContext.state);
+        } catch (error) {
+          console.error('[App] Failed to resume existing AudioContext:', error);
+        }
       }
     }
   };
@@ -51,11 +89,27 @@ export const App: React.FC = () => {
       setHistory([...msgs, { role: 'assistant', content: reply }]);
       setAnswer(reply);
       
-      const tts = await speakText(reply);
-      
-      // Ensure audio context is running before avatar speech
+      // Ensure audio context is ready before TTS
+      // This is critical for iOS Chrome which may need additional activation
       if (audioContext && audioContext.state === 'suspended') {
+        console.log('[App] Re-activating AudioContext before TTS...');
         await audioContext.resume();
+        
+        // For iOS Chrome, add extra delay to ensure WebKit is ready
+        if (/iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent)) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      console.log('[App] Starting TTS synthesis...');
+      const tts = await speakText(reply);
+      console.log('[App] TTS synthesis complete, starting avatar speech...');
+      
+      // Additional AudioContext check right before avatar speech
+      const globalCtx = (window as any).globalAudioContext;
+      if (globalCtx && globalCtx.state === 'suspended') {
+        console.log('[App] Global AudioContext suspended, resuming...');
+        await globalCtx.resume();
       }
       
       setIsAvatarAudioPlaying(true);
@@ -67,6 +121,7 @@ export const App: React.FC = () => {
       }, tts.audio.duration * 1000 + 500); // Add 500ms buffer
     } catch (e) {
       console.error('Error in handleAsk:', e);
+      setIsAvatarAudioPlaying(false);
     }
   };
 
@@ -95,6 +150,35 @@ export const App: React.FC = () => {
             </div>
           )}
         </div>
+        
+        {/* iOS Chrome Warning */}
+        {showIOSWarning && (
+          <div className="absolute top-4 left-4 right-4 z-30">
+            <div className="glass p-4 rounded-lg bg-orange-500/90 text-white">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <svg className="w-6 h-6 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-sm">iOS Chrome Audio Notice</h4>
+                  <p className="text-xs mt-1 opacity-90">
+                    {getIOSChromeWarningMessage()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowIOSWarning(false)}
+                  className="flex-shrink-0 text-orange-200 hover:text-white"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Chat Interface - Fixed at bottom with proper mobile safe areas */}
         <div className="mobile-bottom-panel">

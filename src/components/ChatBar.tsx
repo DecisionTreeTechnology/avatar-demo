@@ -173,6 +173,22 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
     // Initialize audio context on user interaction
     await onInteraction?.();
     
+    // Additional iOS Chrome audio activation
+    const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
+    if (isIOSChrome) {
+      // Try to ensure audio context is really ready for iOS Chrome
+      const globalCtx = (window as any).globalAudioContext;
+      if (globalCtx && globalCtx.state === 'suspended') {
+        try {
+          await globalCtx.resume();
+          // Extra delay for iOS Chrome WebKit
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (e) {
+          console.warn('iOS Chrome audio activation issue:', e);
+        }
+      }
+    }
+    
     if (isListening) {
       // User wants to stop listening
       setUserWantsListening(false);
@@ -191,6 +207,9 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
   // Display value includes interim results while listening
   const displayValue = value + (isListening ? interimTranscript : '');
 
+  // Detect iOS Chrome for input optimization
+  const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
+
   return (
     <div className="flex gap-3 items-center w-full relative">
       <div className="flex-1 relative">
@@ -203,9 +222,10 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           onFocus={() => onInteraction?.()} // Initialize audio context on focus
           autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck="false"
+          // iOS Chrome compatibility: Allow autocorrect and capitalization for better emoji/special char support
+          autoCorrect={isIOSChrome ? "on" : "off"}
+          autoCapitalize={isIOSChrome ? "sentences" : "off"}
+          spellCheck={isIOSChrome ? "true" : "false"}
         />
       </div>
       

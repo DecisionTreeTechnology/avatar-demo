@@ -77,7 +77,8 @@ export async function applyIOSAudioFixes(): Promise<IOSAudioFix> {
       const ctx = (window as any).globalAudioContext;
       if (ctx && ctx.state === 'running') {
         try {
-          ctx.suspend();
+          // Removed ctx.suspend() - let browser handle cleanup naturally
+          console.log('[IOSAudioFixes] Page unloading, letting browser handle audio cleanup');
         } catch (e) {
           // Ignore cleanup errors
         }

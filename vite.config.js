@@ -33,6 +33,14 @@ export default defineConfig({
   
   server: {
     port: 5173,
+    host: true, // Allow external connections
+    // Allow ngrok hosts for iOS testing
+    allowedHosts: [
+      'localhost',
+      '.ngrok-free.app',  // Allow all ngrok free hosts
+      '.ngrok.app',       // Allow all ngrok paid hosts
+      '.ngrok.io'         // Allow legacy ngrok hosts
+    ],
     // Development proxy for Azure Functions (disabled when env vars are present for direct API calls)
     // proxy: {
     //   '/api': {

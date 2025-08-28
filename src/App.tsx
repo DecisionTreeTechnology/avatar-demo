@@ -15,20 +15,20 @@ export const App: React.FC = () => {
   const [answer, setAnswer] = useState('');
   const [history, setHistory] = useState<LLMMessage[]>([{ role: 'system', content: 'You are a helpful assistant.' }]);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const [isAvatarAudioPlaying, setIsAvatarAudioPlaying] = useState(false);
   const [showIOSWarning, setShowIOSWarning] = useState(false);
-  const busy = llmLoading || isSynthesizing || talkingHead.isSpeaking || isAvatarAudioPlaying;
+  const [isAsking, setIsAsking] = useState(false);
+  const busy = isAsking || llmLoading || isSynthesizing || talkingHead.isSpeaking;
 
   // Debug busy state changes
   useEffect(() => {
     console.log('[App] Busy state changed:', {
       busy,
+      isAsking,
       llmLoading,
       isSynthesizing,
       talkingHeadSpeaking: talkingHead.isSpeaking,
-      isAvatarAudioPlaying
     });
-  }, [busy, llmLoading, isSynthesizing, talkingHead.isSpeaking, isAvatarAudioPlaying]);
+  }, [busy, isAsking, llmLoading, isSynthesizing, talkingHead.isSpeaking]);
 
 
 
@@ -96,6 +96,7 @@ export const App: React.FC = () => {
   };
 
   const handleAsk = async (question: string) => {
+    setIsAsking(true);
     try {
       // Initialize audio context on first user interaction
       await initAudioContext();
@@ -129,20 +130,15 @@ export const App: React.FC = () => {
       }
       
       // Play avatar speech
-      setIsAvatarAudioPlaying(true);
       await talkingHead.speak(tts.audio, tts.wordTimings);
-      
-      // Reset audio playing state
-      setTimeout(() => {
-        setIsAvatarAudioPlaying(false);
-      }, tts.audio.duration * 1000 + 500);
       
     } catch (e) {
       console.error('[App] Error in handleAsk:', e);
-      setIsAvatarAudioPlaying(false);
       
       // Show error to user
       setAnswer(`Error: ${e instanceof Error ? e.message : 'Something went wrong'}`);
+    } finally {
+      setIsAsking(false);
     }
   };
 

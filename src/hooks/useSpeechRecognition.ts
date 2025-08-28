@@ -286,6 +286,7 @@ export function useSpeechRecognition(
   const stopListening = useCallback(() => {
     setShouldRestart(false);
     setRetryCount(0);
+    setIsListening(false); // Immediately set to false
     
     // Clear retry timeout
     if (retryTimeoutRef.current) {
@@ -294,9 +295,13 @@ export function useSpeechRecognition(
     }
     
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.abort(); // Use abort for immediate stop
+        recognitionRef.current = null; // Clear the reference
+      } catch (err) {
+        console.log('Error stopping recognition:', err);
+      }
     }
-    setIsListening(false); // Immediately set to false
   }, []);
 
   const forceStop = useCallback(() => {

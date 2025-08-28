@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 interface ChatBarProps {
@@ -30,7 +30,7 @@ const isCompleteSentence = (text: string): boolean => {
 
 export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend, busyLabel = 'Working...', onInteraction }) => {
   const [value, setValue] = useState('');
-  const [autoSendTimer, setAutoSendTimer] = useState<NodeJS.Timeout | null>(null);
+  const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
   const [userWantsListening, setUserWantsListening] = useState(false);
   
@@ -56,21 +56,8 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
       setValue(prev => prev + transcript);
       resetTranscript();
       setLastSpeechTime(Date.now());
-      
-      // Auto-send if transcript ends with sentence-ending punctuation
-      const fullText = value + transcript;
-      if (isCompleteSentence(fullText.trim())) {
-        // Small delay to let user see the text before sending
-        setTimeout(() => {
-          if (fullText.trim()) {
-            onSend(fullText.trim());
-            setValue('');
-            setLastSpeechTime(0);
-          }
-        }, 500);
-      }
     }
-  }, [transcript, resetTranscript, value]);
+  }, [transcript, resetTranscript]);
 
   // Update last speech time when there's interim results (user is actively speaking)
   useEffect(() => {
@@ -116,20 +103,17 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
 
   // Auto-send after pause in speech (with delay)
   useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    
+    // Clear any existing timer
+    if (autoSendTimerRef.current) {
+      clearTimeout(autoSendTimerRef.current);
+    }
+
     if (isListening && value.trim() && value.trim().length > 5 && lastSpeechTime > 0) {
-      // Clear any existing timer
-      if (autoSendTimer) {
-        clearTimeout(autoSendTimer);
-        setAutoSendTimer(null);
-      }
-      
       // Set a timer to auto-send after 3 seconds of no speech activity
-      timer = setTimeout(() => {
+      autoSendTimerRef.current = setTimeout(() => {
         const now = Date.now();
         const timeSinceLastSpeech = now - lastSpeechTime;
-        
+
         // Only auto-send if it's been 3+ seconds since last speech activity
         if (timeSinceLastSpeech >= 3000) {
           const text = value.trim();
@@ -140,22 +124,14 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
           }
         }
       }, 3000);
-      
-      setAutoSendTimer(timer);
-    } else if (!isListening || !value.trim()) {
-      // Cleanup timer when not listening or no value
-      if (autoSendTimer) {
-        clearTimeout(autoSendTimer);
-        setAutoSendTimer(null);
-      }
     }
-    
+
     return () => {
-      if (timer) {
-        clearTimeout(timer);
+      if (autoSendTimerRef.current) {
+        clearTimeout(autoSendTimerRef.current);
       }
     };
-  }, [isListening, value, lastSpeechTime]); // Removed onSend to prevent re-renders
+  }, [isListening, value, lastSpeechTime, onSend]);
 
   const toggleListening = async () => {
     // Initialize audio context on user interaction
@@ -263,6 +239,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ disabled, placeholder, onSend,
       )}
       
       <button
+        data-testid="ask-button"
         className="btn-base bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 min-h-[48px] text-base font-medium"
         disabled={disabled}
         onClick={() => {

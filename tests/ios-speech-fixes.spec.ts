@@ -17,7 +17,7 @@ test.describe('iOS Speech Fixes Verification', () => {
     // Test the complete speech flow
     await test.step('Complete LLM + TTS + Avatar Speech Flow', async () => {
       const input = page.locator('input[placeholder*="Press on mic or type"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.getByTestId('ask-button');
       
       // Send a simple message
       await input.type('Hi');
@@ -76,13 +76,14 @@ test.describe('iOS Speech Fixes Verification', () => {
   });
   
   test('should handle iOS Chrome specifically', async ({ page, context }) => {
-    // Set iOS Chrome user agent
-    await context.addInitScript(() => {
-      Object.defineProperty(navigator, 'userAgent', {
-        get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/105.0.0.0 Mobile/15E148 Safari/604.1',
-        configurable: true
-      });
-    });
+    // This test is only for the 'iOS Chrome' project
+    if (test.info().project.name !== 'iOS Chrome') {
+      test.skip(true, "This test is only for the 'iOS Chrome' project");
+      return;
+    }
+
+    const userAgent = await page.evaluate(() => navigator.userAgent);
+    console.log(`User Agent for iOS Chrome test: ${userAgent}`);
     
     const logs: string[] = [];
     page.on('console', msg => {
@@ -105,13 +106,14 @@ test.describe('iOS Speech Fixes Verification', () => {
     
     // Test basic functionality
     const input = page.locator('input[placeholder*="Press on mic or type"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.getByTestId('ask-button');
     
     await input.type('Test');
     await askButton.click();
     
     // Should still work despite iOS Chrome limitations
     await expect(askButton).toBeDisabled({ timeout: 5000 });
+    await expect(askButton).toBeEnabled({ timeout: 60000 });
     
     // Check for iOS Chrome specific logs
     const iosChromeLogsCount = logs.filter(log => 

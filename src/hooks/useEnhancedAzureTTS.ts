@@ -1,11 +1,16 @@
 import { useCallback, useRef, useState } from 'react';
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
+import { getMicrophoneManager } from '../utils/microphoneStateManager';
 
 interface AzureTTSOptions {
   key?: string;
   region?: string;
   voice?: string;
   format?: string;
+  // New options for microphone integration
+  notifyMicrophoneManager?: boolean;
+  prePlaybackDelay?: number;  // Delay before starting playback
+  postPlaybackDelay?: number; // Delay after playback before re-enabling microphone
 }
 
 export interface SpeakResult {
@@ -24,12 +29,22 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
   const key = opts.key || import.meta.env.VITE_AZURE_SPEECH_KEY;
   const region = opts.region || import.meta.env.VITE_AZURE_SPEECH_REGION;
   const voice = opts.voice || import.meta.env.VITE_AZURE_SPEECH_VOICE || 'en-US-JennyNeural';
+  const notifyMicrophoneManager = opts.notifyMicrophoneManager ?? true;
+  const prePlaybackDelay = opts.prePlaybackDelay ?? 100;
+  const postPlaybackDelay = opts.postPlaybackDelay ?? 750;
 
   const synthesizerRef = useRef<SpeechSDK.SpeechSynthesizer | null>(null);
   const [isSynthesizing, setSynth] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioContextRetryCount = useRef(0);
   const maxRetries = 3;
+  const currentPlaybackRef = useRef<{
+    source: AudioBufferSourceNode | null;
+    gainNode: GainNode | null;
+    startTime: number;
+    endCallback?: () => void;
+  }>({ source: null, gainNode: null, startTime: 0 });
 
   // Get iOS-specific AudioContext configuration
   const getIOSAudioConfig = (): IOSAudioContextConfig => {
@@ -203,6 +218,12 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
     setError(null);
     if (!text.trim()) throw new Error('Empty text');
     
+    // Notify microphone manager that TTS is starting
+    if (notifyMicrophoneManager) {
+      const micManager = getMicrophoneManager();
+      micManager.notifyTTSStarted();
+    }
+    
     const synth = ensureSynth();
     setSynth(true);
     
@@ -297,6 +318,12 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
       console.error('[Enhanced TTS] Synthesis failed:', e);
       setError(e.message || String(e));
       
+      // Ensure microphone manager is notified even on error
+      if (notifyMicrophoneManager) {
+        const micManager = getMicrophoneManager();
+        micManager.notifyTTSEnded();
+      }
+      
       // Provide iOS-specific error guidance
       if (e.message?.includes('AudioContext')) {
         const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
@@ -312,12 +339,169 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
       throw e;
     } finally {
       setSynth(false);
+      
+      // Notify microphone manager that TTS synthesis has ended (but playback might continue)
+      if (notifyMicrophoneManager) {
+        // We don't call notifyTTSEnded here because audio playback happens separately
+        // The playAudio function will handle the end notification
+      }
     }
-  }, [voice, key, region]);
+  }, [voice, key, region, notifyMicrophoneManager]);
+
+  const playAudio = useCallback(async (
+    audioBuffer: AudioBuffer, 
+    wordTimings: { word: string; start: number; end: number }[] = [],
+    onEnd?: () => void
+  ): Promise<void> => {
+    if (!audioBuffer) throw new Error('No audio buffer provided');
+
+    let audioCtx = (window as any).globalAudioContext;
+    if (!audioCtx) {
+      throw new Error('No audio context available');
+    }
+
+    // Stop any currently playing audio
+    if (currentPlaybackRef.current.source) {
+      try {
+        currentPlaybackRef.current.source.stop();
+        currentPlaybackRef.current.source.disconnect();
+      } catch (e) {
+        console.warn('[Enhanced TTS] Error stopping previous audio:', e);
+      }
+    }
+
+    setIsSpeaking(true);
+
+    try {
+      // Add pre-playback delay
+      if (prePlaybackDelay > 0) {
+        await new Promise(resolve => setTimeout(resolve, prePlaybackDelay));
+      }
+
+      const source = audioCtx.createBufferSource();
+      const gainNode = audioCtx.createGain();
+      
+      source.buffer = audioBuffer;
+      gainNode.gain.value = 1.0;
+      
+      source.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      // Store current playback reference
+      currentPlaybackRef.current = {
+        source,
+        gainNode,
+        startTime: audioCtx.currentTime,
+        endCallback: onEnd
+      };
+
+      let hasEnded = false;
+      
+      // Set up end handler
+      const handleEnd = async () => {
+        if (hasEnded) return; // Prevent multiple calls
+        hasEnded = true;
+        
+        console.log('[Enhanced TTS] Audio playback ended');
+        setIsSpeaking(false);
+        
+        // Clean up references
+        currentPlaybackRef.current = { source: null, gainNode: null, startTime: 0 };
+        
+        // Add post-playback delay before re-enabling microphone
+        if (postPlaybackDelay > 0) {
+          await new Promise(resolve => setTimeout(resolve, postPlaybackDelay));
+        }
+        
+        // Notify microphone manager that TTS has ended
+        if (notifyMicrophoneManager) {
+          const micManager = getMicrophoneManager();
+          micManager.notifyTTSEnded();
+        }
+        
+        // Call optional end callback
+        onEnd?.();
+      };
+
+      source.onended = handleEnd;
+      
+      // Fallback timeout for test environments where audio might not actually play
+      const fallbackTimeout = setTimeout(() => {
+        console.log('[Enhanced TTS] Fallback timeout triggered for audio playback');
+        handleEnd();
+      }, Math.max(audioBuffer.duration * 1000 + 2000, 3000)); // Duration + 2s buffer, minimum 3s
+      
+      // Clear fallback timeout when audio ends naturally
+      const originalOnEnded = source.onended;
+      source.onended = (event: Event) => {
+        clearTimeout(fallbackTimeout);
+        originalOnEnded?.(event);
+      };
+      
+      // Start playback
+      source.start();
+      console.log('[Enhanced TTS] Audio playback started, duration:', audioBuffer.duration.toFixed(2) + 's');
+      
+    } catch (error) {
+      console.error('[Enhanced TTS] Audio playback failed:', error);
+      setIsSpeaking(false);
+      
+      // Ensure microphone manager is notified even on error
+      if (notifyMicrophoneManager) {
+        const micManager = getMicrophoneManager();
+        micManager.notifyTTSEnded();
+      }
+      
+      throw error;
+    }
+  }, [notifyMicrophoneManager, prePlaybackDelay, postPlaybackDelay]);
+
+  const speakTextAndPlay = useCallback(async (text: string, onEnd?: () => void): Promise<SpeakResult> => {
+    console.log('[Enhanced TTS] Speaking text and playing:', text.substring(0, 50) + '...');
+    
+    try {
+      // First synthesize the text
+      const result = await speakText(text);
+      
+      // Then play the audio with microphone management
+      await playAudio(result.audio, result.wordTimings, onEnd);
+      
+      return result;
+    } catch (error) {
+      console.error('[Enhanced TTS] Speak and play failed:', error);
+      throw error;
+    }
+  }, [speakText, playAudio]);
+
+  const stopSpeaking = useCallback(() => {
+    console.log('[Enhanced TTS] Stopping speech');
+    
+    if (currentPlaybackRef.current.source) {
+      try {
+        currentPlaybackRef.current.source.stop();
+        currentPlaybackRef.current.source.disconnect();
+      } catch (e) {
+        console.warn('[Enhanced TTS] Error stopping audio:', e);
+      }
+    }
+    
+    setIsSpeaking(false);
+    currentPlaybackRef.current = { source: null, gainNode: null, startTime: 0 };
+    
+    // Notify microphone manager
+    if (notifyMicrophoneManager) {
+      const micManager = getMicrophoneManager();
+      micManager.notifyTTSEnded();
+    }
+  }, [notifyMicrophoneManager]);
 
   return { 
     speakText, 
+    playAudio,
+    speakTextAndPlay,
+    stopSpeaking,
     isSynthesizing, 
+    isSpeaking,
     error,
     // Additional debugging methods
     getAudioContextState: () => (window as any).globalAudioContext?.state || 'unknown',

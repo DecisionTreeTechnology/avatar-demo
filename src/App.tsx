@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppShell } from './components/AppShell';
-import { ChatBar } from './components/ChatBar';
+import { EnhancedChatBar } from './components/EnhancedChatBar';
 import { ChatHistory } from './components/ChatHistory';
 import { useLLM, LLMMessage } from './hooks/useLLM';
 import { useEnhancedAzureTTS } from './hooks/useEnhancedAzureTTS';
@@ -12,8 +12,42 @@ import { isTestMode } from './utils/testUtils';
 
 export const App: React.FC = () => {
   const { chat, loading: llmLoading } = useLLM();
-  const { speakText, isSynthesizing } = useEnhancedAzureTTS();
+  const { speakText, stopSpeaking, isSynthesizing } = useEnhancedAzureTTS();
   const talkingHead = useTalkingHead();
+  
+  // Local speaking state since we're using TalkingHead directly for audio
+  const [isTalkingHeadSpeaking, setIsTalkingHeadSpeaking] = useState(false);
+  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Combined speaking state - use either our manual state or TalkingHead's state
+  const isCurrentlySpeaking = isTalkingHeadSpeaking || talkingHead.isSpeaking;
+  
+  // Combined stop function that stops both TTS audio and TalkingHead animation
+  const handleStopSpeaking = useCallback(() => {
+    console.log('[App] Stopping both TTS and TalkingHead');
+    
+    // Clear any pending timeout
+    if (speakingTimeoutRef.current) {
+      clearTimeout(speakingTimeoutRef.current);
+      speakingTimeoutRef.current = null;
+    }
+    
+    // Stop TTS audio playback
+    stopSpeaking();
+    
+    // Stop TalkingHead animation if available
+    if (talkingHead.head && typeof talkingHead.head.stopSpeaking === 'function') {
+      try {
+        talkingHead.head.stopSpeaking();
+        console.log('[App] TalkingHead stopSpeaking called');
+      } catch (error) {
+        console.warn('[App] Error stopping TalkingHead:', error);
+      }
+    }
+    
+    // Reset our local speaking state
+    setIsTalkingHeadSpeaking(false);
+  }, [stopSpeaking, talkingHead.head]);
   const emotionRecognition = useEmotionRecognition({
     autoApplyEmotions: true,
     autoTriggerGestures: true
@@ -37,7 +71,7 @@ export const App: React.FC = () => {
 
   // Test mode: simulate ready state for faster testing
   const isTestModeActive = isTestMode();
-  const busy = isAsking || llmLoading || (isSynthesizing && !isTestModeActive) || (talkingHead.isSpeaking && !isTestModeActive);
+  const busy = isAsking || llmLoading || (isSynthesizing && !isTestModeActive) || (isTalkingHeadSpeaking && !isTestModeActive);
 
   const avatarReady = isTestModeActive || talkingHead.isReady;
   const avatarError = isTestModeActive ? null : talkingHead.error;
@@ -201,14 +235,49 @@ export const App: React.FC = () => {
       };
       setChatMessages(prev => [...prev, assistantMessage]);
       
-      // Use enhanced TTS with iOS support and retry logic
+      // Use enhanced TTS with avatar lip sync and iOS support
       try {
-        const ttsResult = await speakText(reply);
-        if (ttsResult && ttsResult.audio) {
-          await talkingHead.speak(ttsResult.audio, ttsResult.wordTimings);
-        }
+        // First synthesize the audio and get word timings
+        const { audio, wordTimings } = await speakText(reply);
+        
+        // Convert word timings to TalkingHead format
+        const talkingHeadTimings = wordTimings.map((timing: { word: string; start: number; end: number }) => ({
+          word: timing.word,
+          start: timing.start,
+          end: timing.end
+        }));
+        
+        console.log('[App] Starting avatar speech with lip sync, duration:', audio.duration);
+        console.log('[App] Setting isTalkingHeadSpeaking to true');
+        
+        // Set speaking state manually since we're bypassing playAudio
+        setIsTalkingHeadSpeaking(true);
+        
+        // Create a more generous timeout to keep the button visible
+        const duration = audio.duration * 1000; // Convert to milliseconds
+        const generousTimeout = Math.max(duration + 2000, 5000); // At least 5 seconds or duration + 2 seconds
+        
+        console.log('[App] Setting timeout for', generousTimeout, 'ms (audio duration:', duration, 'ms)');
+        
+        speakingTimeoutRef.current = setTimeout(() => {
+          console.log('[App] Timeout reached, setting speaking to false');
+          setIsTalkingHeadSpeaking(false);
+          speakingTimeoutRef.current = null;
+        }, generousTimeout);
+        
+        // Start TalkingHead speak but don't wait for it to complete
+        // This allows the button to stay visible regardless of when TalkingHead thinks it's done
+        talkingHead.speak(audio, talkingHeadTimings).then(() => {
+          console.log('[App] TalkingHead speak completed');
+        }).catch((speakError) => {
+          console.warn('[App] TalkingHead speak error (continuing):', speakError);
+        });
+        
+        console.log('[App] TalkingHead speak started, button should be visible');
+        
       } catch (speechError) {
-        console.error('[App] TTS synthesis failed:', speechError);
+        console.error('[App] TTS synthesis or avatar speech failed:', speechError);
+        setIsTalkingHeadSpeaking(false); // Ensure speaking state is reset on error
         // Still show the text response even if speech fails
       }
       
@@ -244,13 +313,13 @@ export const App: React.FC = () => {
   return (
     <AppShell>
       <div className="mobile-viewport flex flex-col landscape:flex-row landscape:h-full">
-        {/* Avatar Section - Takes remaining space, but leaves room for chat in portrait */}
-        <div className="flex-1 relative min-h-0 overflow-hidden portrait:pb-64 landscape:h-full landscape:flex landscape:items-center landscape:justify-center landscape:pb-0">
+        {/* Avatar Section - Fills ALL available space not taken by chat panel */}
+        <div className="flex-1 relative min-h-0 overflow-hidden landscape:h-full landscape:flex landscape:items-center landscape:justify-center">
           <div 
             ref={talkingHead.containerRef} 
             data-testid="avatar-container" 
             key="avatar-container-unique"
-            className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-4/5 landscape:max-w-lg"
+            className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none"
           >
             {!avatarReady && (
               <div className="absolute inset-0 flex items-center justify-center z-20 bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur-sm">
@@ -371,6 +440,7 @@ export const App: React.FC = () => {
                 <ChatHistory 
                   messages={chatMessages}
                   onQuickAction={handleAsk}
+                  onInteraction={initAudioContext}
                   disabled={busy}
                   isTyping={isAsking || llmLoading}
                   hideWelcome={!avatarReady || !!lastError}
@@ -378,13 +448,15 @@ export const App: React.FC = () => {
               </div>
               {/* Chat Input - Always visible at bottom */}
               <div className="flex-shrink-0 bg-gray-900/50 p-3 rounded-lg border-t border-white/10">
-                <ChatBar 
+                <EnhancedChatBar 
                   disabled={busy} 
                   onSend={handleAsk} 
                   busyLabel={llmLoading ? 'Thinking...' : 'Speaking...'} 
                   onInteraction={initAudioContext}
                   showSettings={showAnimationControls}
                   onToggleSettings={() => setShowAnimationControls(!showAnimationControls)}
+                  isTTSSpeaking={isCurrentlySpeaking}
+                  onStopSpeaking={handleStopSpeaking}
                 />
                 
                 {/* Animation Controls Expandable Section */}
@@ -412,7 +484,7 @@ export const App: React.FC = () => {
                                 }`}
                                 disabled={!talkingHead.isReady}
                               >
-                                {personality.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                {personality.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                               </button>
                             ))}
                           </div>

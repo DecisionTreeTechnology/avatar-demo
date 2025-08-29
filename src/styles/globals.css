@@ -36,20 +36,26 @@ body {
   min-height: 100dvh;
   position: relative;
   overflow: hidden;
-  padding-bottom: 180px; /* Reserve space for larger bottom panel */
   transition: all 0.3s ease;
 }
 
-/* LANDSCAPE: Full height viewport with side toolbar space */
+/* PORTRAIT: Reserve space for bottom chat panel */
+@media screen and (orientation: portrait) {
+  .mobile-viewport {
+    padding-bottom: 180px; /* Reserve space for chat panel */
+  }
+}
+
+/* LANDSCAPE: Reserve space for side chat panel */
 @media screen and (orientation: landscape) {
   .mobile-viewport {
     padding-bottom: 0 !important; /* No bottom padding needed */
-    padding-right: 340px !important; /* Space for wider side toolbar */
+    padding-right: 340px !important; /* Space for side chat panel */
     display: flex;
     flex-direction: column;
     justify-content: center; /* Center avatar vertically */
-    overflow: hidden !important; /* Ensure nothing bleeds */
-    background: transparent !important; /* Ensure no background conflicts */
+    overflow: hidden !important;
+    background: transparent !important;
   }
   
   /* Avatar container gets full available space */
@@ -341,11 +347,11 @@ body {
   position: relative;
   overflow: visible;
   
-  /* Ensure container has dimensions */
-  min-height: 400px;
-  min-width: 300px;
+  /* Default: Fill all available space */
   width: 100%;
   height: 100%;
+  min-height: 200px; /* Minimum for very small screens */
+  min-width: 200px; /* Minimum for very small screens */
 }
 
 /* Fertility ambiance animation - gentle, calming transitions */
@@ -535,6 +541,53 @@ body {
   transform: scale(1);
 }
 
+/* Avatar entrance animation - walking into room effect */
+.mobile-avatar-container {
+  /* Add a subtle depth effect during avatar entrance */
+  transition: box-shadow 3s ease-out;
+}
+
+.mobile-avatar-container canvas.avatar-ready {
+  /* Enhanced entrance completion */
+  transform: scale(1);
+  filter: brightness(1) contrast(1);
+  transition: transform 0.5s ease-out, filter 0.5s ease-out;
+}
+
+/* Enhanced CSS-based entrance animation */
+.mobile-avatar-container canvas {
+  /* Prepare for entrance animation */
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* Dramatic room lighting effect during avatar entrance */
+@keyframes room-lighting {
+  0% {
+    background-position: 200% 200%;
+    filter: brightness(0.8) contrast(0.9);
+    box-shadow: 
+      0 0 20px rgba(139, 92, 246, 0.1),
+      0 0 40px rgba(236, 72, 153, 0.05);
+  }
+  50% {
+    background-position: 100% 100%;
+    filter: brightness(0.95) contrast(0.95);
+    box-shadow: 
+      0 5px 25px rgba(139, 92, 246, 0.2),
+      0 10px 50px rgba(236, 72, 153, 0.1);
+  }
+  100% {
+    background-position: 0% 0%;
+    filter: brightness(1) contrast(1);
+    box-shadow: 
+      0 8px 32px rgba(139, 92, 246, 0.15),
+      0 4px 16px rgba(236, 72, 153, 0.1);
+  }
+}
+
+/* CSS entrance fallback - avatar walking closer (growing in size) */
+
 /* Fertility consultation room overlay effect */
 .mobile-avatar-container::before {
   content: '';
@@ -657,16 +710,19 @@ body {
   }
 }
 
-/* Mobile portrait mode - smaller avatar head with professional styling */
+/* Mobile portrait mode - maximize avatar space above chat panel */
 @media screen and (max-width: 768px) and (orientation: portrait) {
   .mobile-avatar-container {
-    transform: scale(0.7) translateZ(0);
-    -webkit-transform: scale(0.7) translateZ(0);
+    transform: scale(1.0) translateZ(0); /* Increased from 0.7 to 1.0 for larger avatar */
+    -webkit-transform: scale(1.0) translateZ(0);
     transform-origin: center center;
     -webkit-transform-origin: center center;
-    /* Adjust border radius for smaller size */
     border-radius: 8px;
-    /* More subtle shadow on mobile */
+    width: 95% !important; /* Use more horizontal space */
+    height: 85% !important; /* Use more vertical space available above chat */
+    max-width: none !important; /* Remove constraints */
+    max-height: none !important; /* Remove constraints */
+    margin: auto !important;
     box-shadow: 
       0 2px 4px -1px rgba(0, 0, 0, 0.1),
       0 1px 2px -1px rgba(0, 0, 0, 0.06);
@@ -676,28 +732,28 @@ body {
 /* LANDSCAPE: Avatar gets full space and optimal sizing */
 @media screen and (orientation: landscape) {
   .mobile-avatar-container {
-    transform: scale(1.15) translateZ(0) !important; /* Increased from 1.0 to 1.15 for more zoom */
-    -webkit-transform: scale(1.15) translateZ(0) !important;
+    transform: scale(1.3) translateZ(0) !important; /* Increased from 1.15 to 1.3 for maximum use of space */
+    -webkit-transform: scale(1.3) translateZ(0) !important;
     transform-origin: center center;
     -webkit-transform-origin: center center;
     border-radius: 12px;
-    position: relative !important; /* Allow normal sizing */
-    width: 85% !important; /* Slightly smaller width to accommodate zoom */
-    height: 75% !important; /* Slightly smaller height to accommodate zoom */
-    max-width: 450px !important; /* Adjusted for zoom */
-    max-height: 380px !important; /* Adjusted for zoom */
+    position: relative !important;
+    width: 95% !important; /* Increased from 85% to use more space */
+    height: 90% !important; /* Increased from 75% to use more vertical space */
+    max-width: none !important; /* Remove max-width constraint */
+    max-height: none !important; /* Remove max-height constraint */
     margin: auto !important;
-    z-index: 10 !important; /* Ensure avatar is above all backgrounds but below side panel */
-    /* Add subtle border for visual separation from side panel */
+    z-index: 10 !important;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    /* Ensure avatar area has clear boundaries */
     background: rgba(0, 0, 0, 0.02);
   }
   
-  /* Ensure canvas is fully visible */
+  /* Ensure canvas is fully visible and uses all container space */
   .mobile-avatar-container canvas {
     z-index: 15 !important;
     position: relative !important;
+    width: 100% !important;
+    height: 100% !important;
   }
   
   /* Ensure the main avatar area stays properly separated */
@@ -706,40 +762,40 @@ body {
   }
 }
 
-/* Mobile responsive scaling - conservative to keep avatar visible */
+/* Mobile responsive scaling - optimize for larger avatar while keeping it visible */
 @media screen and (max-width: 768px) and (orientation: portrait) {
   .mobile-avatar-container {
-    transform: scale(0.85) translateZ(0);
-    -webkit-transform: scale(0.85) translateZ(0);
+    transform: scale(1.0) translateZ(0); /* Increased from 0.85 for larger avatar */
+    -webkit-transform: scale(1.0) translateZ(0);
     transform-origin: center center;
     -webkit-transform-origin: center center;
     border-radius: 8px;
   }
 }
 
-/* Small mobile devices - moderate scaling */
+/* Small mobile devices - moderate scaling but still larger than before */
 @media screen and (max-width: 414px) and (orientation: portrait) {
   .mobile-avatar-container {
-    transform: scale(0.75) translateZ(0);
-    -webkit-transform: scale(0.75) translateZ(0);
+    transform: scale(0.9) translateZ(0); /* Increased from 0.75 for larger avatar */
+    -webkit-transform: scale(0.9) translateZ(0);
     border-radius: 6px;
   }
 }
 
-/* Very small devices - careful scaling */
+/* Very small devices - careful scaling but still usable */
 @media screen and (max-width: 360px) and (orientation: portrait) {
   .mobile-avatar-container {
-    transform: scale(0.7) translateZ(0);
-    -webkit-transform: scale(0.7) translateZ(0);
+    transform: scale(0.85) translateZ(0); /* Increased from 0.7 for larger avatar */
+    -webkit-transform: scale(0.85) translateZ(0);
     border-radius: 6px;
   }
 }
 
-/* Tablet portrait mode */
+/* Tablet portrait mode - maximize space usage */
 @media screen and (min-width: 769px) and (max-width: 1024px) and (orientation: portrait) {
   .mobile-avatar-container {
-    transform: scale(0.9) translateZ(0);
-    -webkit-transform: scale(0.9) translateZ(0);
+    transform: scale(1.1) translateZ(0); /* Increased from 0.9 for larger avatar */
+    -webkit-transform: scale(1.1) translateZ(0);
     transform-origin: center center;
     -webkit-transform-origin: center center;
     border-radius: 10px;
@@ -749,28 +805,28 @@ body {
 /* Landscape mode optimizations */
 @media screen and (orientation: landscape) and (max-height: 500px) {
   .mobile-avatar-container {
-    transform: scale(0.85) translateZ(0);
-    -webkit-transform: scale(0.85) translateZ(0);
+    transform: scale(1.1) translateZ(0); /* Increased from 0.85 to better use space */
+    -webkit-transform: scale(1.1) translateZ(0);
     transform-origin: center center;
     -webkit-transform-origin: center center;
     border-radius: 8px;
   }
 }
 
-/* Ultra-small devices like Galaxy M31s in portrait */
+/* Ultra-small devices like Galaxy M31s in portrait - still usable size */
 @media screen and (max-width: 360px) and (orientation: portrait) {
   .mobile-avatar-container {
-    transform: scale(0.55) translateZ(0);
-    -webkit-transform: scale(0.55) translateZ(0);
+    transform: scale(0.8) translateZ(0); /* Increased from 0.55 to be more usable */
+    -webkit-transform: scale(0.8) translateZ(0);
     border-radius: 6px;
   }
 }
 
-/* Tablet portrait mode (iPad, etc.) - moderate scaling */
+/* Tablet portrait mode (iPad, etc.) - maximize space usage */
 @media screen and (min-width: 769px) and (max-width: 1024px) and (orientation: portrait) {
   .mobile-avatar-container {
-    transform: scale(0.85) translateZ(0);
-    -webkit-transform: scale(0.85) translateZ(0);
+    transform: scale(1.1) translateZ(0); /* Increased from 0.85 to use more space */
+    -webkit-transform: scale(1.1) translateZ(0);
     transform-origin: center center;
     -webkit-transform-origin: center center;
     border-radius: 10px;
@@ -780,8 +836,8 @@ body {
 /* Landscape mode optimizations */
 @media screen and (orientation: landscape) and (max-height: 500px) {
   .mobile-avatar-container {
-    transform: scale(0.9) translateZ(0); /* Slightly larger in landscape */
-    -webkit-transform: scale(0.9) translateZ(0);
+    transform: scale(1.2) translateZ(0); /* Increased from 0.9 to better use space */
+    -webkit-transform: scale(1.2) translateZ(0);
     transform-origin: center center;
     -webkit-transform-origin: center center;
     border-radius: 8px;
@@ -791,8 +847,8 @@ body {
 /* Very short landscape screens - optimize avatar size */
 @media screen and (orientation: landscape) and (max-height: 400px) {
   .mobile-avatar-container {
-    transform: scale(0.85) translateZ(0);
-    -webkit-transform: scale(0.85) translateZ(0);
+    transform: scale(1.0) translateZ(0); /* Increased from 0.85 to better use space */
+    -webkit-transform: scale(1.0) translateZ(0);
     transform-origin: center center;
     -webkit-transform-origin: center center;
   }

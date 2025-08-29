@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import { PersonalityManager, PersonalityType, PersonalityTraits } from '../utils/personalitySystem';
-import { EmotionType } from '../utils/avatarAnimationManager';
 import { UseTalkingHeadResult } from './useTalkingHead';
 
 export interface UsePersonalitySystemOptions {
@@ -17,7 +16,6 @@ export interface UsePersonalitySystemResult {
     needsEncouragement?: boolean;
     needsEmpathy?: boolean;
     isClosing?: boolean;
-    userEmotion?: EmotionType;
     userInput?: string;
   }) => string;
   applyPersonalityToAvatar: (avatar: UseTalkingHeadResult) => void;
@@ -51,7 +49,6 @@ export function usePersonalitySystem(options: UsePersonalitySystemOptions = {}):
     needsEncouragement?: boolean;
     needsEmpathy?: boolean;
     isClosing?: boolean;
-    userEmotion?: EmotionType;
     userInput?: string;
   }) => {
     // Only apply personality modifications for the initial greeting
@@ -71,8 +68,7 @@ export function usePersonalitySystem(options: UsePersonalitySystemOptions = {}):
     const traits = personalityManagerRef.current.getTraits();
     
     try {
-      // Apply default emotion and intensity
-      avatar.setEmotion(traits.defaultEmotion, traits.emotionIntensity);
+      // Skip emotion setting - animation manager removed
       
       console.log(`[PersonalitySystem] Applied ${currentPersonality} traits to avatar:`, {
         emotion: traits.defaultEmotion,

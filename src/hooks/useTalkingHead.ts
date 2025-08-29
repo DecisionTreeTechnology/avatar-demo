@@ -86,7 +86,9 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
           // Enable English lipsync module so speakAudio can auto-generate visemes from words.
           lipsyncModules: ['en'],
           avatarMood: 'neutral',
-          cameraView: 'full' // Show full body instead of just head
+          cameraView: 'upper', // hoose one of "full", "mid", "upper", "head"
+          cameraDistance: 4.5, // Closer camera for better zoom
+          cameraY: 1.0 // Slightly higher camera position to focus on upper area
         });
       } catch (e:any) {
         console.error('TalkingHead construct error', e);

@@ -5,6 +5,7 @@ import { ChatMessage } from '../types/chat';
 interface ChatHistoryProps {
   messages: ChatMessage[];
   onQuickAction?: (message: string) => void;
+  onInteraction?: () => Promise<void> | void;
   disabled?: boolean;
   isTyping?: boolean;
   hideWelcome?: boolean; // Hide the welcome message when greeting is being prepared
@@ -13,11 +14,13 @@ interface ChatHistoryProps {
 export const ChatHistory: React.FC<ChatHistoryProps> = ({ 
   messages, 
   onQuickAction,
+  onInteraction,
   disabled = false,
   isTyping = false,
   hideWelcome = false
 }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showQuickActions, setShowQuickActions] = useState(false); // Start with false
   const [showDelayedQuickActions, setShowDelayedQuickActions] = useState(false);
 
@@ -26,11 +29,21 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
     console.log('[ChatHistory] Received messages:', messages.length, messages.map(m => ({ id: m.id, text: m.text.substring(0, 50) + '...', isUser: m.isUser })));
   }, [messages]);
 
-  // Auto scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // Auto scroll to bottom when new messages arrive or typing status changes
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
+  // Also scroll after a slight delay to handle content that might load asynchronously
+  useEffect(() => {
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
 
   // Show quick actions after greeting appears (with delay)
@@ -66,6 +79,19 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
       setShowQuickActions(true);
     }
   }, [messages, showDelayedQuickActions]);
+
+  // Handler for quick action clicks that includes audio context initialization
+  const handleQuickActionClick = async (message: string) => {
+    // Initialize audio context on user interaction (important for iOS)
+    if (onInteraction) {
+      await onInteraction();
+    }
+    
+    // Send the message
+    if (onQuickAction) {
+      onQuickAction(message);
+    }
+  };
 
   // Only show 3 random quick actions to save space
   const quickActions = [
@@ -110,8 +136,11 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
   return (
     <div className="w-full h-full" data-testid="chat-history">
       {/* Absolute positioned scroll container - leave space for toolbar */}
-      <div className="absolute inset-x-0 top-0 bottom-0 overflow-y-auto p-6 space-y-6 chat-history-scroll">
-        <div ref={scrollRef} className="w-full">
+      <div 
+        ref={scrollContainerRef} 
+        className="absolute inset-x-0 top-0 bottom-0 overflow-y-auto p-6 space-y-6 chat-history-scroll"
+      >
+        <div className="w-full">
         {/* Welcome message when no conversation - only show if no messages at all */}
         {messages.length === 0 && !hideWelcome && (
           <div className="text-center py-1">
@@ -137,7 +166,7 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
               {selectedQuickActions.map((action, index) => (
                 <button
                   key={index}
-                  onClick={() => onQuickAction?.(action.message)}
+                  onClick={() => handleQuickActionClick(action.message)}
                   disabled={disabled}
                   className="w-full flex items-center gap-2 px-2 py-1.5 text-xs bg-purple-900/30 hover:bg-purple-800/40 border border-purple-600/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
                 >
@@ -191,7 +220,7 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
               {selectedQuickActions.slice(0, 2).map((action, index) => (
                 <button
                   key={`repeat-${index}`}
-                  onClick={() => onQuickAction?.(action.message)}
+                  onClick={() => handleQuickActionClick(action.message)}
                   disabled={disabled}
                   className="flex items-center gap-2 p-2 text-xs bg-purple-900/20 hover:bg-purple-800/30 border border-purple-600/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
                 >
@@ -202,6 +231,9 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
             </div>
           </div>
         )}
+        
+        {/* Invisible element at the end for auto-scrolling */}
+        <div ref={messagesEndRef} />
         </div>
       </div>
     </div>

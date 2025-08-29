@@ -3,11 +3,13 @@ import React from 'react';
 interface FertilityQuickActionsProps {
   onSend: (message: string) => void;
   disabled?: boolean;
+  onInteraction?: () => Promise<void> | void;
 }
 
 export const FertilityQuickActions: React.FC<FertilityQuickActionsProps> = ({
   onSend,
-  disabled = false
+  disabled = false,
+  onInteraction
 }) => {
   const quickActions = [
     {
@@ -42,6 +44,16 @@ export const FertilityQuickActions: React.FC<FertilityQuickActionsProps> = ({
     }
   ];
 
+  const handleQuickAction = async (message: string) => {
+    // Initialize audio context on user interaction (important for iOS)
+    if (onInteraction) {
+      await onInteraction();
+    }
+    
+    // Send the message
+    onSend(message);
+  };
+
   return (
     <div className="mb-3">
       <div className="text-xs text-gray-400 mb-2">💝 Quick Support Options:</div>
@@ -49,7 +61,7 @@ export const FertilityQuickActions: React.FC<FertilityQuickActionsProps> = ({
         {quickActions.map((action, index) => (
           <button
             key={index}
-            onClick={() => onSend(action.message)}
+            onClick={() => handleQuickAction(action.message)}
             disabled={disabled}
             className="flex items-center gap-2 p-2 text-xs bg-purple-900/30 hover:bg-purple-800/40 border border-purple-600/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
           >

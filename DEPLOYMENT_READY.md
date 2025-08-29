@@ -77,8 +77,8 @@
 ## 🌐 Deployment URLs
 
 ### **Production**
-- **Azure Static Web App**: `https://happy-mushroom-0d946260f.2.azurestaticapps.net/`
-- **Custom Domain**: (Configure in Azure portal if needed)
+- **Custom Domain**: `https://demo.fertiligent.ai/` ✨ **Primary URL**
+- **Azure Static Web App**: `https://happy-mushroom-0d946260f.2.azurestaticapps.net/` (fallback)
 
 ### **Monitoring**
 - **GitHub Actions**: Auto-deploy on `main` branch pushes

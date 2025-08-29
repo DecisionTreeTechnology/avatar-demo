@@ -319,6 +319,9 @@ export const App: React.FC = () => {
             ref={talkingHead.containerRef} 
             data-testid="avatar-container" 
             key="avatar-container-unique"
+            data-scene={personalitySystem.currentPersonality === 'fertility_assistant' ? 'fertility_clinic' :
+                       personalitySystem.currentPersonality === 'professional' ? 'office' :
+                       personalitySystem.currentPersonality === 'casual' ? 'home' : 'park'}
             className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none"
           >
             {!avatarReady && (

@@ -137,14 +137,6 @@ const personalityGreetings: Record<PersonalityType, string[]> = {
   ]
 };
 
-// Scene backgrounds for different personalities
-const sceneBackgrounds: Record<string, string> = {
-  fertility_clinic: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  office: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-  home: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-  park: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)'
-};
-
 // Personality Manager Class
 export class PersonalityManager {
   private currentPersonality: PersonalityType;
@@ -214,16 +206,34 @@ export class PersonalityManager {
 
   public applySceneToAvatar(container: HTMLElement): void {
     const scene = this.currentTraits.scenePreference;
-    const background = sceneBackgrounds[scene];
     
-    if (background && container) {
+    if (container) {
       console.log(`[PersonalityManager] Applying ${scene} scene background`);
-      container.style.background = background;
-      container.style.backgroundSize = 'cover';
-      container.style.backgroundPosition = 'center';
+      
+      // Add data attribute for CSS targeting
+      container.setAttribute('data-scene', scene);
+      
+      // Remove all scene-specific classes
+      container.classList.remove('fertility-clinic-scene', 'office-scene', 'home-scene', 'park-scene');
+      
+      // Add scene-specific class based on current personality
+      switch (scene) {
+        case 'fertility_clinic':
+          container.classList.add('fertility-clinic-scene');
+          break;
+        case 'office':
+          container.classList.add('office-scene');
+          break;
+        case 'home':
+          container.classList.add('home-scene');
+          break;
+        case 'park':
+          container.classList.add('park-scene');
+          break;
+      }
       
       // Add subtle animation
-      container.style.transition = 'background 2s ease-in-out';
+      container.style.transition = 'background 2s ease-in-out, box-shadow 1s ease-in-out';
     }
   }
 
@@ -233,10 +243,10 @@ export class PersonalityManager {
 
   public getSceneDescription(): string {
     const sceneDescriptions: Record<string, string> = {
-      fertility_clinic: 'A warm, professional fertility clinic environment',
-      office: 'A clean, professional office setting',
-      home: 'A cozy, comfortable home environment',
-      park: 'A peaceful, natural outdoor setting'
+      fertility_clinic: 'A warm, professional fertility clinic with soft lighting, calming colors, and subtle medical patterns - designed to provide comfort and hope during your fertility journey',
+      office: 'A modern corporate office with clean lines, professional gray tones, and geometric patterns that convey competence and reliability',
+      home: 'A cozy, comfortable home environment with warm orange and wood tones, creating an intimate and relaxed atmosphere for casual conversation',
+      park: 'A peaceful natural park setting with gentle greens, organic patterns, and flowing elements that evoke fresh air and tranquility'
     };
     
     return sceneDescriptions[this.currentTraits.scenePreference] || 'A neutral environment';

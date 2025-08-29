@@ -9,6 +9,7 @@ import { useEmotionRecognition } from './hooks/useEmotionRecognition';
 import { usePersonalitySystem } from './hooks/usePersonalitySystem';
 import { ChatMessage } from './types/chat';
 import { isTestMode } from './utils/testUtils';
+import { AudioContextManager } from './utils/audioContextManager';
 
 export const App: React.FC = () => {
   const { chat, loading: llmLoading } = useLLM();
@@ -139,22 +140,23 @@ export const App: React.FC = () => {
     }
   }, [avatarReady, isFirstInteraction, hasShownGreeting, isTestModeActive]);
 
-  // Initialize AudioContext on first user interaction (required for mobile)
+  // Initialize AudioContext using centralized manager
   const initAudioContext = async (): Promise<void> => {
     try {
-      // Simple audio context initialization
-      const globalCtx = (window as any).globalAudioContext;
-      if (globalCtx && globalCtx.state === 'suspended') {
-        await globalCtx.resume();
-      }
+      console.log('[App] Initializing audio context via AudioContextManager');
+      const audioManager = AudioContextManager.getInstance();
+      await audioManager.getContext();
+      
+      const debugInfo = audioManager.getDebugInfo();
+      console.log('[App] AudioContext initialized:', debugInfo.audioContext);
       
       const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
       if (isIOS) {
-        setShowIOSWarning(globalCtx?.state !== 'running');
+        setShowIOSWarning(debugInfo.audioContext.state !== 'running');
       }
       
     } catch (error) {
-      console.error('Error initializing audio context:', error);
+      console.error('[App] Error initializing audio context:', error);
       const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
       if (isIOS) {
         setShowIOSWarning(true);
@@ -197,7 +199,6 @@ export const App: React.FC = () => {
         isGreeting: false,
         needsEncouragement: userEmotionAnalysis.emotion.primaryEmotion === 'sad' || userEmotionAnalysis.sentiment === 'negative',
         needsEmpathy: ['sad', 'confused', 'angry'].includes(userEmotionAnalysis.emotion.primaryEmotion),
-        userEmotion: userEmotionAnalysis.emotion.primaryEmotion,
         userInput: question
       });
       

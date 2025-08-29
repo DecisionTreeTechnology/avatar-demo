@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 import { getMicrophoneManager } from '../utils/microphoneStateManager';
+import { getAudioContext } from '../utils/audioContextManager';
 
 interface AzureTTSOptions {
   key?: string;
@@ -18,12 +19,6 @@ export interface SpeakResult {
   wordTimings: { word: string; start: number; end: number }[];
 }
 
-interface IOSAudioContextConfig {
-  sampleRate: number;
-  latencyHint: AudioContextLatencyCategory;
-  retryAttempts: number;
-  stabilizationDelay: number;
-}
 
 export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
   const key = opts.key || import.meta.env.VITE_AZURE_SPEECH_KEY;
@@ -38,7 +33,6 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioContextRetryCount = useRef(0);
-  const maxRetries = 3;
   const currentPlaybackRef = useRef<{
     source: AudioBufferSourceNode | null;
     gainNode: GainNode | null;
@@ -46,104 +40,24 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
     endCallback?: () => void;
   }>({ source: null, gainNode: null, startTime: 0 });
 
-  // Get iOS-specific AudioContext configuration
-  const getIOSAudioConfig = (): IOSAudioContextConfig => {
-    const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
-    const isIOSSafari = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /Safari/i.test(navigator.userAgent) && !/CriOS/i.test(navigator.userAgent);
 
-    if (isIOSChrome) {
-      return {
-        sampleRate: 48000, // iOS Chrome prefers 48kHz
-        latencyHint: 'interactive',
-        retryAttempts: 3,
-        stabilizationDelay: 500 // Longer delay for iOS Chrome
-      };
-    } else if (isIOSSafari) {
-      return {
-        sampleRate: 44100, // iOS Safari works well with 44.1kHz
-        latencyHint: 'interactive',
-        retryAttempts: 2,
-        stabilizationDelay: 200
-      };
-    } else {
-      return {
-        sampleRate: 44100,
-        latencyHint: 'interactive',
-        retryAttempts: 1,
-        stabilizationDelay: 100
-      };
-    }
-  };
-
-  // Enhanced AudioContext creation with iOS-specific handling
+  // Enhanced AudioContext creation using centralized manager
   const createEnhancedAudioContext = async (): Promise<AudioContext> => {
-    const config = getIOSAudioConfig();
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    
-    if (!AudioContextClass) {
-      throw new Error('AudioContext not supported in this browser');
-    }
-
-    // Check if we already have a working global context
-    const existingCtx = (window as any).globalAudioContext;
-    if (existingCtx && existingCtx.state === 'running') {
-      console.log('[Enhanced TTS] Reusing existing working AudioContext');
-      return existingCtx;
-    }
-
-    console.log('[Enhanced TTS] Creating new AudioContext with iOS config:', config);
-    
-    const ctx = new AudioContextClass({
-      sampleRate: config.sampleRate,
-      latencyHint: config.latencyHint
-    });
-
-    // Store globally
-    (window as any).globalAudioContext = ctx;
-
-    return ctx;
+    console.log('[Enhanced TTS] Getting AudioContext from centralized manager');
+    return await getAudioContext();
   };
 
-  // Enhanced AudioContext resume with retry logic
+  // Simplified context validation - manager handles resume logic
   const ensureAudioContextRunning = async (ctx: AudioContext): Promise<void> => {
-    const config = getIOSAudioConfig();
+    console.log('[Enhanced TTS] AudioContext state:', ctx.state);
     
-    for (let attempt = 0; attempt <= config.retryAttempts; attempt++) {
-      try {
-        if (ctx.state === 'suspended') {
-          console.log(`[Enhanced TTS] Attempting to resume AudioContext (attempt ${attempt + 1}/${config.retryAttempts + 1})`);
-          await ctx.resume();
-        }
-
-        // Wait for stabilization
-        await new Promise(resolve => setTimeout(resolve, config.stabilizationDelay));
-
-        if (ctx.state === 'running') {
-          console.log('[Enhanced TTS] AudioContext successfully running');
-          audioContextRetryCount.current = 0; // Reset retry count on success
-          return;
-        }
-
-        if (attempt < config.retryAttempts) {
-          console.warn(`[Enhanced TTS] AudioContext still ${ctx.state}, retrying...`);
-          // Exponential backoff
-          await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, attempt)));
-        }
-      } catch (error) {
-        console.error(`[Enhanced TTS] AudioContext resume attempt ${attempt + 1} failed:`, error);
-        if (attempt < config.retryAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 300 * Math.pow(2, attempt)));
-        }
+    if (ctx.state !== 'running') {
+      // The AudioContextManager handles resume logic, so we just need to get it again
+      console.log('[Enhanced TTS] AudioContext not running, getting fresh context from manager');
+      const freshCtx = await getAudioContext();
+      if (freshCtx.state !== 'running') {
+        throw new Error(`AudioContext failed to activate. State: ${freshCtx.state}. iOS devices require user interaction for audio.`);
       }
-    }
-
-    // If we get here, all attempts failed
-    audioContextRetryCount.current++;
-    
-    if (audioContextRetryCount.current >= maxRetries) {
-      throw new Error('AudioContext failed to activate after multiple attempts. iOS devices require user interaction for audio. Try refreshing the page and ensure you interact with the page before using audio features.');
-    } else {
-      throw new Error(`AudioContext activation failed (attempt ${audioContextRetryCount.current}/${maxRetries}). State: ${ctx.state}`);
     }
   };
 
@@ -350,15 +264,13 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
 
   const playAudio = useCallback(async (
     audioBuffer: AudioBuffer, 
-    wordTimings: { word: string; start: number; end: number }[] = [],
+    _wordTimings: { word: string; start: number; end: number }[] = [],
     onEnd?: () => void
   ): Promise<void> => {
     if (!audioBuffer) throw new Error('No audio buffer provided');
 
-    let audioCtx = (window as any).globalAudioContext;
-    if (!audioCtx) {
-      throw new Error('No audio context available');
-    }
+    console.log('[Enhanced TTS] Getting AudioContext for playback');
+    const audioCtx = await getAudioContext();
 
     // Stop any currently playing audio
     if (currentPlaybackRef.current.source) {
@@ -431,12 +343,10 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
         handleEnd();
       }, Math.max(audioBuffer.duration * 1000 + 2000, 3000)); // Duration + 2s buffer, minimum 3s
       
-      // Clear fallback timeout when audio ends naturally
-      const originalOnEnded = source.onended;
-      source.onended = (event: Event) => {
+      // Clear fallback timeout when audio ends naturally  
+      source.addEventListener('ended', () => {
         clearTimeout(fallbackTimeout);
-        originalOnEnded?.(event);
-      };
+      });
       
       // Start playback
       source.start();
@@ -504,7 +414,13 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
     isSpeaking,
     error,
     // Additional debugging methods
-    getAudioContextState: () => (window as any).globalAudioContext?.state || 'unknown',
+    getAudioContextState: () => {
+      try {
+        return (window as any).globalAudioContext?.state || 'unknown';
+      } catch {
+        return 'error';
+      }
+    },
     retryCount: audioContextRetryCount.current
   };
 }

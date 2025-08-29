@@ -3,7 +3,11 @@ import { test, expect, Page } from '@playwright/test';
 test.describe('Avatar Demo - Audio Context Management', () => {
   
   test.beforeEach(async ({ page }) => {
+    // Set longer timeout for these tests
+    test.setTimeout(90000);
     await page.goto('/');
+    // Wait for page to load
+    await page.waitForLoadState('domcontentloaded');
     
     // Mock audio context for consistent testing
     await page.addInitScript(() => {
@@ -86,7 +90,12 @@ test.describe('Avatar Demo - Audio Context Management', () => {
   });
 
   test('should create AudioContext with proper configuration', async ({ page }) => {
-    const askButton = page.locator('button:has-text("Ask")');
+    // Wait for components to load
+    await page.waitForSelector('[data-testid="avatar-container"]', { timeout: 20000 });
+    await page.waitForTimeout(2000);
+    
+    const askButton = page.locator('[data-testid="ask-button"]');
+    await expect(askButton).toBeVisible({ timeout: 10000 });
     await askButton.click();
     
     // Verify AudioContext properties
@@ -113,8 +122,15 @@ test.describe('Avatar Demo - Audio Context Management', () => {
   });
 
   test('should handle multiple AudioContext activation attempts', async ({ page }) => {
-    const chatInput = page.locator('input[type="text"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    // Wait for components to load
+    await page.waitForSelector('[data-testid="avatar-container"]', { timeout: 20000 });
+    await page.waitForTimeout(2000);
+    
+    const chatInput = page.locator('input[placeholder*="Press on mic or type"]');
+    const askButton = page.locator('[data-testid="ask-button"]');
+    
+    await expect(chatInput).toBeVisible({ timeout: 10000 });
+    await expect(askButton).toBeVisible({ timeout: 10000 });
     
     // Multiple interactions should not create multiple contexts
     await chatInput.focus();

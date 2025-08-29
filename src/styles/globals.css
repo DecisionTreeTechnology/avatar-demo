@@ -6,6 +6,8 @@
   color-scheme: dark; 
   /* Better mobile scrolling */
   touch-action: pan-x pan-y;
+  /* Shared width for right rail */
+  --rail-width: 340px;
 }
 
 html,body,#root { height:100%; }
@@ -50,7 +52,7 @@ body {
 @media screen and (orientation: landscape) {
   .mobile-viewport {
     padding-bottom: 0 !important; /* No bottom padding needed */
-    padding-right: 340px !important; /* Space for side chat panel */
+    padding-right: var(--rail-width) !important; /* Space for side chat panel */
     display: flex;
     flex-direction: column;
     justify-content: center; /* Center avatar vertically */
@@ -119,11 +121,9 @@ body {
   }
 }
 
-/* For very small landscape screens */
+/* For small landscape screens: unify width via variable */
 @media screen and (orientation: landscape) and (max-width: 667px) {
-  .mobile-viewport {
-    padding-right: 240px !important; /* Narrower side toolbar */
-  }
+  :root { --rail-width: 300px; }
 }
 
 /* Mobile bottom panel that handles iOS Safari properly */
@@ -151,13 +151,16 @@ body {
     top: 0 !important;
     left: auto !important;
     right: 0 !important;
-    width: 340px !important; /* Increased from 260px for wider chat area */
-    min-height: 100vh !important;
+    width: var(--rail-width) !important; /* Use shared width */
+    height: 100dvh !important; /* Fill mobile landscape correctly */
+    min-height: 100dvh !important;
+    max-height: none !important; /* Override base 80vh cap in landscape */
     border-top: none !important;
     border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: center !important;
+    justify-content: flex-start !important; /* Avoid visual float/gaps */
+    overflow: hidden !important; /* Only inner content should scroll */
     z-index: 20 !important; /* Ensure side panel is above avatar */
     /* Enhanced gradient for better visual separation */
     background: linear-gradient(90deg, 
@@ -184,14 +187,14 @@ body {
   /* Remove bottom padding since toolbar is on the side */
   .mobile-viewport {
     padding-bottom: 0 !important;
-    padding-right: 340px !important; /* Match wider side toolbar */
+    padding-right: var(--rail-width) !important; /* Match side toolbar */
   }
 }
 
 /* For very small landscape screens, make toolbar narrower */
 @media screen and (orientation: landscape) and (max-width: 667px) {
   .mobile-bottom-panel {
-    width: 300px !important; /* Increased from 240px */
+    width: var(--rail-width) !important; /* Keep in sync with padding */
     /* Add subtle gradient for visual separation */
     background: linear-gradient(90deg, 
       rgba(10, 10, 10, 0.98) 0%, 
@@ -206,7 +209,7 @@ body {
   }
   
   .mobile-viewport {
-    padding-right: 300px !important; /* Match wider toolbar */
+    padding-right: var(--rail-width) !important; /* Match side toolbar */
   }
 }
 

@@ -7,7 +7,6 @@ interface EnhancedChatBarProps {
   onSend: (text: string) => void;
   busyLabel?: string;
   onInteraction?: () => Promise<void> | void;
-  showSettings?: boolean;
   onToggleSettings?: () => void;
   // New props for TTS integration
   isTTSSpeaking?: boolean;
@@ -20,7 +19,6 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
   onSend, 
   busyLabel = 'Working...', 
   onInteraction, 
-  showSettings = false, 
   onToggleSettings,
   isTTSSpeaking = false,
   onStopSpeaking

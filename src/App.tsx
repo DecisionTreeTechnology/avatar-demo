@@ -456,7 +456,6 @@ export const App: React.FC = () => {
                   onSend={handleAsk} 
                   busyLabel={llmLoading ? 'Thinking...' : 'Speaking...'} 
                   onInteraction={initAudioContext}
-                  showSettings={showAnimationControls}
                   onToggleSettings={() => setShowAnimationControls(!showAnimationControls)}
                   isTTSSpeaking={isCurrentlySpeaking}
                   onStopSpeaking={handleStopSpeaking}

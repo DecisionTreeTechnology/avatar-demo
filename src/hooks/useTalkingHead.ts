@@ -153,7 +153,7 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
       disposed = true;
       if (handleResize) try { window.removeEventListener('resize', handleResize); } catch {}
       // Cleanup animation manager
-      try { animationManagerRef.current?.cleanup?.(); } catch {}
+      try { animationManagerRef.current?.dispose?.(); } catch {}
       // Dispose of the TalkingHead instance
       try { 
         headRef.current?.dispose?.(); 

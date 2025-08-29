@@ -616,20 +616,17 @@ body {
 
 /* Dynamic background image classes for each scene */
 .scene-fertility-clinic::before { 
-  background-image: url('/images/scenes/fertility-clinic/background.webp'), 
+  background-image: url('/images/scenes/fertility-clinic/fertility-clinic-overlay.webp'), 
                     var(--fertility-css-fallback); 
 }
 .scene-professional::before { 
-  background-image: url('/images/scenes/office/background.webp'), 
-                    var(--office-css-fallback); 
+  background-image: var(--office-css-fallback); 
 }
 .scene-casual::before { 
-  background-image: url('/images/scenes/home/background.webp'), 
-                    var(--home-css-fallback); 
+  background-image: var(--home-css-fallback); 
 }
 .scene-friendly::before { 
-  background-image: url('/images/scenes/park/background.webp'), 
-                    var(--park-css-fallback); 
+  background-image: var(--park-css-fallback); 
 }
 
 /* CSS Variables for fallbacks */

@@ -72,7 +72,8 @@ export const App: React.FC = () => {
 
   // Test mode: simulate ready state for faster testing
   const isTestModeActive = isTestMode();
-  const busy = isAsking || llmLoading || (isSynthesizing && !isTestModeActive) || (isTalkingHeadSpeaking && !isTestModeActive);
+  // Busy should reflect processing/synthesis, but not block UI during playback
+  const busy = isAsking || llmLoading || (isSynthesizing && !isTestModeActive);
 
   const avatarReady = isTestModeActive || talkingHead.isReady;
   const avatarError = isTestModeActive ? null : talkingHead.error;
@@ -125,6 +126,10 @@ export const App: React.FC = () => {
       setIsAsking(true);
       setLastError(null);
       initAudioContext();
+      // If currently speaking, stop ongoing TTS/animation before new request
+      if (isCurrentlySpeaking) {
+        handleStopSpeaking();
+      }
       
       // Add user message to chat
       const userMessage: ChatMessage = {
@@ -226,8 +231,19 @@ export const App: React.FC = () => {
         // This allows the button to stay visible regardless of when TalkingHead thinks it's done
         talkingHead.speak(audio, talkingHeadTimings).then(() => {
           console.log('[App] TalkingHead speak completed');
+          // Clear extended hold if still pending and release speaking state
+          if (speakingTimeoutRef.current) {
+            clearTimeout(speakingTimeoutRef.current);
+            speakingTimeoutRef.current = null;
+          }
+          setIsTalkingHeadSpeaking(false);
         }).catch((speakError) => {
           console.warn('[App] TalkingHead speak error (continuing):', speakError);
+          if (speakingTimeoutRef.current) {
+            clearTimeout(speakingTimeoutRef.current);
+            speakingTimeoutRef.current = null;
+          }
+          setIsTalkingHeadSpeaking(false);
         });
         
         console.log('[App] TalkingHead speak started, button should be visible');

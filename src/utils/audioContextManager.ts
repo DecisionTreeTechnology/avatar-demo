@@ -1,6 +1,5 @@
-import webAudioTouchUnlock from 'web-audio-touch-unlock';
-import unmuteIosAudio from 'unmute-ios-audio';
 import { createLogger } from './logger';
+import { unlockAudioContext } from './unlock-audio';
 
 interface AudioContextConfig {
   sampleRate: number;
@@ -34,18 +33,6 @@ export class AudioContextManager {
   private constructor() {
     this.config = this.getOptimalConfig();
     this.setupGlobalEventListeners();
-    
-    // Early iOS audio unmute initialization
-    const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
-    if (isIOS) {
-      this.logger.log('iOS detected, calling unmuteIosAudio early...');
-      try {
-        unmuteIosAudio();
-        this.logger.log('unmuteIosAudio called successfully');
-      } catch (error) {
-        this.logger.warn('unmuteIosAudio failed:', error);
-      }
-    }
   }
 
   static getInstance(): AudioContextManager {
@@ -108,78 +95,28 @@ export class AudioContextManager {
       }
     };
 
-    // iOS-specific touch handler for initial activation
-    const handleFirstTouch = async () => {
-      this.logger.log('First touch detected, initializing and unlocking audio context');
+    // Simple audio context initialization on user interaction
+    const handleFirstInteraction = async () => {
+      this.logger.log('User interaction detected, initializing audio context');
       try {
-        const context = await this.getContext();
-        
-        // Apply iOS audio unlock on user interaction
-        const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
-        if (isIOS && !this.isUnlocked) {
-          this.logger.log('Applying iOS audio unlock on user touch...');
-          try {
-            const unlocked = await webAudioTouchUnlock(context);
-            if (unlocked) {
-              this.logger.log('iOS audio successfully unlocked via touch!');
-              this.isUnlocked = true;
-            } else {
-              this.logger.warn('iOS audio unlock returned false on touch');
-            }
-          } catch (unlockError) {
-            this.logger.warn('iOS audio unlock failed on touch:', unlockError);
-          }
-        }
-        
-        document.removeEventListener('touchstart', handleFirstTouch);
-        document.removeEventListener('touchend', handleFirstTouch);
+        await this.getContext();
       } catch (error) {
-        this.logger.warn('Failed to initialize on first touch:', error);
+        this.logger.warn('Failed to initialize on user interaction:', error);
       }
     };
 
-    // General click handler for desktop and fallback
-    const handleFirstClick = async () => {
-      this.logger.log('First click detected, initializing and unlocking audio context');
-      try {
-        const context = await this.getContext();
-        
-        // Apply iOS audio unlock on click as well (for iOS Chrome edge cases)
-        const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
-        if (isIOS && !this.isUnlocked) {
-          this.logger.log('Applying iOS audio unlock on click...');
-          try {
-            const unlocked = await webAudioTouchUnlock(context);
-            if (unlocked) {
-              this.logger.log('iOS audio successfully unlocked via click!');
-              this.isUnlocked = true;
-            } else {
-              this.logger.warn('iOS audio unlock returned false on click');
-            }
-          } catch (unlockError) {
-            this.logger.warn('iOS audio unlock failed on click:', unlockError);
-          }
-        }
-        
-        document.removeEventListener('click', handleFirstClick);
-      } catch (error) {
-        this.logger.warn('Failed to initialize on first click:', error);
-      }
-    };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     document.addEventListener('focus', handleFocus);
-    document.addEventListener('touchstart', handleFirstTouch, { once: true, passive: true });
-    document.addEventListener('touchend', handleFirstTouch, { once: true, passive: true });
-    document.addEventListener('click', handleFirstClick, { once: true });
+    document.addEventListener('touchstart', handleFirstInteraction, { once: true, passive: true });
+    document.addEventListener('click', handleFirstInteraction, { once: true });
 
     // Store cleanup functions
     this.eventListeners.push(
       () => document.removeEventListener('visibilitychange', handleVisibilityChange),
       () => document.removeEventListener('focus', handleFocus),
-      () => document.removeEventListener('touchstart', handleFirstTouch),
-      () => document.removeEventListener('touchend', handleFirstTouch),
-      () => document.removeEventListener('click', handleFirstClick)
+      () => document.removeEventListener('touchstart', handleFirstInteraction),
+      () => document.removeEventListener('click', handleFirstInteraction)
     );
   }
 
@@ -215,7 +152,10 @@ export class AudioContextManager {
 
       // Set up context event listeners
       this.state.context.addEventListener('statechange', () => {
-        console.log('[AudioContextManager] AudioContext state changed to:', this.state.context?.state);
+        const state = this.state.context?.state;
+        this.logger.log('AudioContext state changed to:', state);
+        // Keep unlock status in sync with real state
+        this.isUnlocked = state === 'running';
       });
 
       this.state.isInitialized = true;
@@ -226,8 +166,16 @@ export class AudioContextManager {
         sampleRate: this.state.context.sampleRate
       });
 
-      // Note: iOS audio unlock will be applied on user interaction
-      // in the setupGlobalEventListeners method
+      // Apply simple iOS audio unlock
+      try {
+        this.logger.log('Applying simple iOS audio unlock...');
+        await unlockAudioContext(this.state.context);
+        // Note: isUnlocked is set by the statechange event listener above
+        this.logger.log('iOS audio unlock completed, state:', this.state.context.state);
+      } catch (unlockError) {
+        this.logger.warn('iOS audio unlock failed:', unlockError);
+        // Continue anyway - context might still work
+      }
       
     } catch (error) {
       this.state.lastError = error instanceof Error ? error.message : String(error);

@@ -11,7 +11,6 @@ export default defineConfig({
       'react',
       'react-dom',
       'microsoft-cognitiveservices-speech-sdk',
-      'web-audio-touch-unlock',
     ]
   },
   
@@ -34,7 +33,6 @@ export default defineConfig({
           // Separate vendor chunks for better caching
           'react-vendor': ['react', 'react-dom'],
           'azure-vendor': ['microsoft-cognitiveservices-speech-sdk'],
-          'audio-vendor': ['web-audio-touch-unlock'],
           'avatar-vendor': ['@met4citizen/talkinghead']
         }
       }

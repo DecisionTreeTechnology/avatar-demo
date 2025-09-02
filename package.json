@@ -23,9 +23,7 @@
     "microsoft-cognitiveservices-speech-sdk": "^1.37.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "three": "^0.179.1",
-    "unmute-ios-audio": "^3.3.0",
-    "web-audio-touch-unlock": "^1.0.1"
+    "three": "^0.179.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

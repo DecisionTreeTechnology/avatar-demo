@@ -10,6 +10,7 @@ import { usePersonalitySystem } from './hooks/usePersonalitySystem';
 import { ChatMessage } from './types/chat';
 import { isTestMode } from './utils/testUtils';
 import { AudioContextManager } from './utils/audioContextManager';
+import { getMicrophoneManager } from './utils/microphoneStateManager';
 import { createLogger } from './utils/logger';
 
 export const App: React.FC = () => {
@@ -49,6 +50,12 @@ export const App: React.FC = () => {
     
     // Reset our local speaking state
     setIsTalkingHeadSpeaking(false);
+
+    // Ensure microphone manager knows speaking has ended
+    try {
+      const mic = getMicrophoneManager();
+      mic.notifyTTSEnded();
+    } catch {}
   }, [stopSpeaking, talkingHead.head]);
   const emotionRecognition = useEmotionRecognition({
     autoApplyEmotions: true,
@@ -225,6 +232,12 @@ export const App: React.FC = () => {
         
         // Set speaking state manually since we're bypassing playAudio
         setIsTalkingHeadSpeaking(true);
+
+        // Notify microphone manager that TTS is starting (redundant-safe)
+        try {
+          const mic = getMicrophoneManager();
+          mic.notifyTTSStarted();
+        } catch {}
         
         // Create a more generous timeout to keep the button visible
         const duration = audio.duration * 1000; // Convert to milliseconds
@@ -248,6 +261,12 @@ export const App: React.FC = () => {
             speakingTimeoutRef.current = null;
           }
           setIsTalkingHeadSpeaking(false);
+
+          // Notify microphone manager that TTS has ended
+          try {
+            const mic = getMicrophoneManager();
+            mic.notifyTTSEnded();
+          } catch {}
         }).catch((speakError) => {
           console.warn('[App] TalkingHead speak error (continuing):', speakError);
           if (speakingTimeoutRef.current) {
@@ -255,6 +274,12 @@ export const App: React.FC = () => {
             speakingTimeoutRef.current = null;
           }
           setIsTalkingHeadSpeaking(false);
+
+          // Ensure microphone manager is reset even on error
+          try {
+            const mic = getMicrophoneManager();
+            mic.notifyTTSEnded();
+          } catch {}
         });
         
         console.log('[App] TalkingHead speak started, button should be visible');

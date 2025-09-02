@@ -6,29 +6,43 @@ export default defineConfig({
   
   optimizeDeps: {
     // TalkingHead module is dynamically imported; exclude to avoid pre-bundling errors
-    exclude: ['@met4citizen/talkinghead']
+    exclude: ['@met4citizen/talkinghead'],
+    include: [
+      'react',
+      'react-dom',
+      'microsoft-cognitiveservices-speech-sdk',
+      'web-audio-touch-unlock',
+    ]
   },
   
   build: {
     // Production optimizations
     target: 'es2015',
     minify: 'terser',
-    sourcemap: true,
+    sourcemap: false, // Disable for production
+    
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console statements in production
+        drop_debugger: true,
+      },
+    },
     
     rollupOptions: {
       output: {
         manualChunks: {
           // Separate vendor chunks for better caching
-          vendor: ['react', 'react-dom'],
-          azure: ['microsoft-cognitiveservices-speech-sdk'],
-          avatar: ['@met4citizen/talkinghead']
+          'react-vendor': ['react', 'react-dom'],
+          'azure-vendor': ['microsoft-cognitiveservices-speech-sdk'],
+          'audio-vendor': ['web-audio-touch-unlock'],
+          'avatar-vendor': ['@met4citizen/talkinghead']
         }
       }
     },
     
     // Asset optimization
     assetsInlineLimit: 4096,
-    chunkSizeWarningLimit: 1600
+    chunkSizeWarningLimit: 1000 // Stricter limit for production
   },
   
   server: {

@@ -1,3 +1,6 @@
+import webAudioTouchUnlock from 'web-audio-touch-unlock';
+import { createLogger } from './logger';
+
 interface AudioContextConfig {
   sampleRate: number;
   latencyHint: AudioContextLatencyCategory;
@@ -24,6 +27,8 @@ export class AudioContextManager {
   
   private config: AudioContextConfig;
   private eventListeners: Array<() => void> = [];
+  private isUnlocked: boolean = false;
+  private logger = createLogger('AudioContextManager');
 
   private constructor() {
     this.config = this.getOptimalConfig();
@@ -73,9 +78,9 @@ export class AudioContextManager {
     // Handle page visibility changes (iOS backgrounding)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && this.state.context?.state === 'suspended') {
-        console.log('[AudioContextManager] Page visible, attempting to resume suspended context');
+        this.logger.log('Page visible, attempting to resume suspended context');
         this.resumeContext().catch(error => {
-          console.warn('[AudioContextManager] Failed to resume on visibility change:', error);
+          this.logger.warn('Failed to resume on visibility change:', error);
         });
       }
     };
@@ -83,33 +88,33 @@ export class AudioContextManager {
     // Handle page focus/blur
     const handleFocus = () => {
       if (this.state.context?.state === 'suspended') {
-        console.log('[AudioContextManager] Page focused, attempting to resume suspended context');
+        this.logger.log('Page focused, attempting to resume suspended context');
         this.resumeContext().catch(error => {
-          console.warn('[AudioContextManager] Failed to resume on focus:', error);
+          this.logger.warn('Failed to resume on focus:', error);
         });
       }
     };
 
     // iOS-specific touch handler for initial activation
     const handleFirstTouch = async () => {
-      console.log('[AudioContextManager] First touch detected, initializing audio context');
+      this.logger.log('First touch detected, initializing audio context');
       try {
         await this.getContext();
         document.removeEventListener('touchstart', handleFirstTouch);
         document.removeEventListener('touchend', handleFirstTouch);
       } catch (error) {
-        console.warn('[AudioContextManager] Failed to initialize on first touch:', error);
+        this.logger.warn('Failed to initialize on first touch:', error);
       }
     };
 
     // General click handler for desktop and fallback
     const handleFirstClick = async () => {
-      console.log('[AudioContextManager] First click detected, initializing audio context');
+      this.logger.log('First click detected, initializing audio context');
       try {
         await this.getContext();
         document.removeEventListener('click', handleFirstClick);
       } catch (error) {
-        console.warn('[AudioContextManager] Failed to initialize on first click:', error);
+        this.logger.warn('Failed to initialize on first click:', error);
       }
     };
 
@@ -151,7 +156,7 @@ export class AudioContextManager {
       throw new Error('AudioContext not supported in this browser');
     }
 
-    console.log('[AudioContextManager] Creating AudioContext with config:', this.config);
+    this.logger.log('Creating AudioContext with config:', this.config);
     
     try {
       this.state.context = new AudioContextClass({
@@ -167,14 +172,32 @@ export class AudioContextManager {
       this.state.isInitialized = true;
       this.state.lastError = null;
       
-      console.log('[AudioContextManager] AudioContext created successfully:', {
+      this.logger.log('AudioContext created successfully:', {
         state: this.state.context.state,
         sampleRate: this.state.context.sampleRate
       });
+
+      // Apply iOS audio unlock library
+      const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+      if (isIOS && !this.isUnlocked) {
+        this.logger.log('Applying iOS audio unlock...');
+        try {
+          const unlocked = await webAudioTouchUnlock(this.state.context);
+          if (unlocked) {
+            this.logger.log('iOS audio successfully unlocked!');
+            this.isUnlocked = true;
+          } else {
+            this.logger.warn('iOS audio unlock returned false');
+          }
+        } catch (unlockError) {
+          this.logger.warn('iOS audio unlock failed:', unlockError);
+          // Don't throw - continue with regular context
+        }
+      }
       
     } catch (error) {
       this.state.lastError = error instanceof Error ? error.message : String(error);
-      console.error('[AudioContextManager] Failed to create AudioContext:', error);
+      this.logger.error('Failed to create AudioContext:', error);
       throw error;
     }
   }
@@ -189,7 +212,7 @@ export class AudioContextManager {
     for (let attempt = 0; attempt <= this.config.retryAttempts; attempt++) {
       try {
         if (this.state.context.state === 'suspended') {
-          console.log(`[AudioContextManager] Attempting to resume AudioContext (attempt ${attempt + 1}/${this.config.retryAttempts + 1})`);
+          this.logger.log(`Attempting to resume AudioContext (attempt ${attempt + 1}/${this.config.retryAttempts + 1})`);
           await this.state.context.resume();
         }
 
@@ -197,19 +220,19 @@ export class AudioContextManager {
         await new Promise(resolve => setTimeout(resolve, this.config.stabilizationDelay));
 
         if (this.state.context.state === 'running') {
-          console.log('[AudioContextManager] AudioContext successfully resumed');
+          this.logger.log('AudioContext successfully resumed');
           this.state.retryCount = 0;
           this.state.lastError = null;
           return;
         }
 
         if (attempt < this.config.retryAttempts) {
-          console.warn(`[AudioContextManager] AudioContext still ${this.state.context.state}, retrying...`);
+          this.logger.warn(`AudioContext still ${this.state.context.state}, retrying...`);
           const delay = Math.min(300 * Math.pow(2, attempt), this.config.maxRetryDelay);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       } catch (error) {
-        console.error(`[AudioContextManager] Resume attempt ${attempt + 1} failed:`, error);
+        this.logger.error(`Resume attempt ${attempt + 1} failed:`, error);
         this.state.lastError = error instanceof Error ? error.message : String(error);
         
         if (attempt < this.config.retryAttempts) {
@@ -263,6 +286,10 @@ export class AudioContextManager {
       global: {
         hasGlobalContext: !!(window as any).globalAudioContext,
         globalContextState: (window as any).globalAudioContext?.state || 'none'
+      },
+      unlockStatus: {
+        isUnlocked: this.isUnlocked,
+        requiresUnlock: /iPad|iPhone|iPod/i.test(navigator.userAgent)
       }
     };
   }
@@ -292,13 +319,13 @@ export class AudioContextManager {
       
       return new Promise((resolve) => {
         const timeout = setTimeout(() => {
-          console.warn('[AudioContextManager] Test playback timeout');
+          this.logger.warn('Test playback timeout');
           resolve(false);
         }, 3000);
 
         source.onended = () => {
           clearTimeout(timeout);
-          console.log('[AudioContextManager] Test playback successful');
+          this.logger.log('Test playback successful');
           resolve(true);
         };
 
@@ -307,7 +334,7 @@ export class AudioContextManager {
       });
       
     } catch (error) {
-      console.error('[AudioContextManager] Test playback failed:', error);
+      this.logger.error('Test playback failed:', error);
       return false;
     }
   }
@@ -320,7 +347,7 @@ export class AudioContextManager {
     // Close audio context
     if (this.state.context && this.state.context.state !== 'closed') {
       this.state.context.close().catch(error => {
-        console.warn('[AudioContextManager] Error closing AudioContext:', error);
+        this.logger.warn('Error closing AudioContext:', error);
       });
     }
     

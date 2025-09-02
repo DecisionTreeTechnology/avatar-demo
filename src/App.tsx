@@ -10,6 +10,7 @@ import { usePersonalitySystem } from './hooks/usePersonalitySystem';
 import { ChatMessage } from './types/chat';
 import { isTestMode } from './utils/testUtils';
 import { AudioContextManager } from './utils/audioContextManager';
+import { createLogger } from './utils/logger';
 
 export const App: React.FC = () => {
   const { chat, loading: llmLoading } = useLLM();
@@ -67,8 +68,7 @@ export const App: React.FC = () => {
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showAnimationControls, setShowAnimationControls] = useState(false);
-  const [isFirstInteraction, setIsFirstInteraction] = useState(true);
-  const [hasShownGreeting, setHasShownGreeting] = useState(false); // Track if greeting was shown
+  const logger = createLogger('App');
 
   // Test mode: simulate ready state for faster testing
   const isTestModeActive = isTestMode();
@@ -91,64 +91,20 @@ export const App: React.FC = () => {
         personalitySystem.applySceneToAvatar(talkingHead.containerRef.current);
       }
       
-      // Show initial greeting for fertility assistant with a natural delay
-      if (false && isFirstInteraction && personalitySystem.currentPersonality === 'fertility_assistant' && !hasShownGreeting) {
-        console.log('[App] Showing initial greeting - this should only happen once');
-        setHasShownGreeting(true); // Mark greeting as shown IMMEDIATELY to prevent duplicates
-        
-        // First, perform a gentle welcome gesture
-        setTimeout(async () => {
-          try {
-            await talkingHead.performGesture('wave');
-          } catch (error) {
-            console.log('[App] Welcome gesture failed (non-critical):', error);
-          }
-        }, 1000);
-        
-        // Then show greeting text after avatar has gestured
-        setTimeout(() => {
-          // Use a simple, single greeting without any personality system modifications
-          const simpleGreeting = "Hello! I'm here to support you on your fertility journey. How are you feeling today?";
-          console.log('[App] Using simple greeting:', simpleGreeting);
-          
-          // Add greeting message to chat
-          const greetingMessage: ChatMessage = {
-            id: `greeting-${Date.now()}`,
-            text: simpleGreeting,
-            isUser: false,
-            timestamp: new Date()
-          };
-          setChatMessages(prev => {
-            console.log('[App] Current messages before adding greeting:', prev.length);
-            // Double-check we're not adding duplicate greetings
-            const hasExistingGreeting = prev.some(msg => msg.id.startsWith('greeting-'));
-            if (hasExistingGreeting) {
-              console.warn('[App] Preventing duplicate greeting');
-              return prev;
-            }
-            console.log('[App] Adding greeting to chat');
-            const newMessages = [...prev, greetingMessage];
-            console.log('[App] New messages array:', newMessages.length);
-            return newMessages;
-          });
-          
-          // DON'T automatically speak the greeting to prevent feedback loops
-          // User can choose to have it read if they want by clicking
-          
-        }, 2500); // 2.5 second delay for natural appearance
-      }
+      // Automatic greeting disabled for production
+      // Users can interact naturally without forced greeting
     }
-  }, [avatarReady, isFirstInteraction, hasShownGreeting, isTestModeActive]);
+  }, [avatarReady, isTestModeActive]);
 
   // Initialize AudioContext using centralized manager
   const initAudioContext = async (): Promise<void> => {
     try {
-      console.log('[App] Initializing audio context via AudioContextManager');
+      logger.log('Initializing audio context via AudioContextManager');
       const audioManager = AudioContextManager.getInstance();
       await audioManager.getContext();
       
       const debugInfo = audioManager.getDebugInfo();
-      console.log('[App] AudioContext initialized:', debugInfo.audioContext);
+      logger.log('AudioContext initialized:', debugInfo.audioContext);
       
       const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
       if (isIOS) {
@@ -156,7 +112,7 @@ export const App: React.FC = () => {
       }
       
     } catch (error) {
-      console.error('[App] Error initializing audio context:', error);
+      logger.error('Error initializing audio context:', error);
       const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
       if (isIOS) {
         setShowIOSWarning(true);
@@ -180,9 +136,9 @@ export const App: React.FC = () => {
       setChatMessages(prev => [...prev, userMessage]);
       
       // Analyze user input for emotion and apply to avatar
-      console.log('[App] Analyzing user input emotion...');
+      logger.log('Analyzing user input emotion...');
       const userEmotionAnalysis = await emotionRecognition.analyzeAndApply(question, talkingHead);
-      console.log('[App] User emotion analysis:', userEmotionAnalysis);
+      logger.log('User emotion analysis:', userEmotionAnalysis);
       
       // Add user message to conversation history
       const newConversationHistory = [...conversationHistory, question];
@@ -307,7 +263,7 @@ export const App: React.FC = () => {
       setChatMessages(prev => [...prev, errorMessage_chat]);
     } finally {
       setIsAsking(false);
-      setIsFirstInteraction(false);
+      // First interaction state removed for production
     }
   };
 

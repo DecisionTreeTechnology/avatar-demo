@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 import { getMicrophoneManager } from '../utils/microphoneStateManager';
 import { getAudioContext } from '../utils/audioContextManager';
+import { createLogger } from '../utils/logger';
 
 interface AzureTTSOptions {
   key?: string;
@@ -33,6 +34,7 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioContextRetryCount = useRef(0);
+  const logger = createLogger('EnhancedTTS');
   const currentPlaybackRef = useRef<{
     source: AudioBufferSourceNode | null;
     gainNode: GainNode | null;
@@ -43,17 +45,17 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
 
   // Enhanced AudioContext creation using centralized manager
   const createEnhancedAudioContext = async (): Promise<AudioContext> => {
-    console.log('[Enhanced TTS] Getting AudioContext from centralized manager');
+    logger.log('Getting AudioContext from centralized manager');
     return await getAudioContext();
   };
 
   // Simplified context validation - manager handles resume logic
   const ensureAudioContextRunning = async (ctx: AudioContext): Promise<void> => {
-    console.log('[Enhanced TTS] AudioContext state:', ctx.state);
+    logger.log('AudioContext state:', ctx.state);
     
     if (ctx.state !== 'running') {
       // The AudioContextManager handles resume logic, so we just need to get it again
-      console.log('[Enhanced TTS] AudioContext not running, getting fresh context from manager');
+      logger.log('AudioContext not running, getting fresh context from manager');
       const freshCtx = await getAudioContext();
       if (freshCtx.state !== 'running') {
         throw new Error(`AudioContext failed to activate. State: ${freshCtx.state}. iOS devices require user interaction for audio.`);
@@ -71,7 +73,7 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
         return true;
       }
 
-      console.log('[Enhanced TTS] Running iOS audio validation...');
+      logger.log('Running iOS audio validation...');
       
       // Create a very short test buffer
       const testDuration = 0.05; // 50ms
@@ -96,13 +98,13 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
       // Test playback
       return new Promise((resolve) => {
         const timeout = setTimeout(() => {
-          console.warn('[Enhanced TTS] Audio validation timeout');
+          logger.warn('Audio validation timeout');
           resolve(false);
         }, 2000);
 
         source.onended = () => {
           clearTimeout(timeout);
-          console.log('[Enhanced TTS] Audio validation successful');
+          logger.log('Audio validation successful');
           resolve(true);
         };
 
@@ -111,7 +113,7 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
       });
       
     } catch (error) {
-      console.error('[Enhanced TTS] Audio validation failed:', error);
+      logger.error('Audio validation failed:', error);
       return false;
     }
   };

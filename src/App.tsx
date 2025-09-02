@@ -125,7 +125,8 @@ export const App: React.FC = () => {
     try {
       setIsAsking(true);
       setLastError(null);
-      initAudioContext();
+      // Ensure AudioContext is initialized and unlocked before proceeding (important for iOS)
+      await initAudioContext();
       // If currently speaking, stop ongoing TTS/animation before new request
       if (isCurrentlySpeaking) {
         handleStopSpeaking();
@@ -199,6 +200,16 @@ export const App: React.FC = () => {
       
       // Use enhanced TTS with avatar lip sync and iOS support
       try {
+        // Re-confirm AudioContext is available and running just before playback
+        try {
+          const ctx = await AudioContextManager.getInstance().getContext();
+          if (ctx.state === 'suspended') {
+            await ctx.resume();
+          }
+        } catch (ctxErr) {
+          console.warn('[App] Warning ensuring AudioContext before playback:', ctxErr);
+        }
+
         // First synthesize the audio and get word timings
         const { audio, wordTimings } = await speakText(reply);
         

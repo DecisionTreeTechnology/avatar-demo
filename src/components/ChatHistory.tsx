@@ -6,6 +6,7 @@ interface ChatHistoryProps {
   messages: ChatMessage[];
   onQuickAction?: (message: string) => void;
   onInteraction?: () => Promise<void> | void;
+  onEnableMicrophone?: () => void;
   disabled?: boolean;
   isTyping?: boolean;
   hideWelcome?: boolean; // Hide the welcome message when greeting is being prepared
@@ -15,6 +16,7 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
   messages, 
   onQuickAction,
   onInteraction,
+  onEnableMicrophone,
   disabled = false,
   isTyping = false,
   hideWelcome = false
@@ -85,6 +87,11 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
     // Initialize audio context on user interaction (important for iOS)
     if (onInteraction) {
       await onInteraction();
+    }
+    
+    // Signal that microphone should be enabled after TTS completes
+    if (onEnableMicrophone) {
+      onEnableMicrophone();
     }
     
     // Send the message

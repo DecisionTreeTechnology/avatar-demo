@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppShell } from './components/AppShell';
-import { EnhancedChatBar } from './components/EnhancedChatBar';
+import { EnhancedChatBar, EnhancedChatBarRef } from './components/EnhancedChatBar';
 import { ChatHistory } from './components/ChatHistory';
 import { useLLM, LLMMessage } from './hooks/useLLM';
 import { useEnhancedAzureTTS } from './hooks/useEnhancedAzureTTS';
@@ -23,6 +23,7 @@ export const App: React.FC = () => {
   const speakingStartTimeRef = useRef<number>(0);
   const stopRequestedRef = useRef(false); // Track if stop was requested
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const chatBarRef = useRef<EnhancedChatBarRef>(null);
   
   // Combined speaking state - use either our manual state or TalkingHead's state
   const isCurrentlySpeaking = isTalkingHeadSpeaking || talkingHead.isSpeaking;
@@ -149,6 +150,10 @@ export const App: React.FC = () => {
       }
     }
   };
+
+  const enableMicrophone = useCallback(() => {
+    chatBarRef.current?.enableAfterTTS();
+  }, []);
 
     const handleAsk = async (question: string) => {
     try {
@@ -569,6 +574,7 @@ export const App: React.FC = () => {
                   messages={chatMessages}
                   onQuickAction={handleAsk}
                   onInteraction={initAudioContext}
+                  onEnableMicrophone={enableMicrophone}
                   disabled={busy}
                   isTyping={isAsking || llmLoading}
                   hideWelcome={!avatarReady || !!lastError}
@@ -577,6 +583,7 @@ export const App: React.FC = () => {
               {/* Chat Input - Always visible at bottom */}
               <div className="flex-shrink-0 bg-gray-900/50 p-3 rounded-lg border-t border-white/10">
                 <EnhancedChatBar 
+                  ref={chatBarRef}
                   disabled={busy} 
                   onSend={handleAsk} 
                   busyLabel={llmLoading ? 'Thinking...' : 'Speaking...'} 

@@ -122,7 +122,10 @@ export class MicrophoneStateManager {
    * Notify when TTS/Avatar speaking starts
    */
   public notifyTTSStarted(): void {
-    console.log('[MicrophoneManager] TTS started - forcing microphone stop');
+    console.log('[MicrophoneManager] TTS started - forcing microphone stop', {
+      wasCapturing: this.state.isCapturing,
+      wasListening: this.state.userIntentToListen
+    });
     
     // Prevent rapid successive calls
     if (this.audioState.isTTSSpeaking) {
@@ -202,6 +205,11 @@ export class MicrophoneStateManager {
    * Force stop capture immediately
    */
   private forceStopCapture(reason: string): void {
+    console.log('[MicrophoneManager] Force stopping capture for reason:', reason, {
+      hadInstance: !!this.recognitionInstance,
+      wasCapturing: this.state.isCapturing
+    });
+    
     if (this.recognitionInstance) {
       try {
         // Clear all event handlers to prevent restart attempts

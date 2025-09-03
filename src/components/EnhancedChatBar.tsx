@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useEnhancedSpeechRecognition } from '../hooks/useEnhancedSpeechRecognition';
 
 interface EnhancedChatBarProps {
@@ -13,7 +13,12 @@ interface EnhancedChatBarProps {
   onStopSpeaking?: () => void;
 }
 
-export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({ 
+export interface EnhancedChatBarRef {
+  startListening: () => Promise<void>;
+  enableAfterTTS: () => void;
+}
+
+export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarProps>(({ 
   disabled, 
   placeholder, 
   onSend, 
@@ -22,25 +27,69 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
   onToggleSettings,
   isTTSSpeaking = false,
   onStopSpeaking
-}) => {
+}, ref) => {
   const [value, setValue] = useState('');
   const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const shouldEnableAfterTTSRef = useRef<boolean>(false);
   
   const speechRecognition = useEnhancedSpeechRecognition({
     feedbackFilterThreshold: 3, // Slightly more aggressive filtering
     autoRestartAfterTTS: true  // Auto-restart after TTS to prevent stuck spinning button
   });
 
+  // Expose microphone control to parent component
+  useImperativeHandle(ref, () => ({
+    startListening: async () => {
+      await onInteraction?.();
+      if (!speechRecognition.userIntentToListen) {
+        speechRecognition.startListening();
+      }
+    },
+    enableAfterTTS: () => {
+      shouldEnableAfterTTSRef.current = true;
+    }
+  }));
+
   // Integrate with TTS state - Primary TTS state management
   useEffect(() => {
     if (isTTSSpeaking) {
-      console.log('[EnhancedChatBar] TTS started - notifying speech recognition');
+      console.log('[EnhancedChatBar] TTS started - microphone should be DISABLED', {
+        isListening: speechRecognition.isListening,
+        userIntentToListen: speechRecognition.userIntentToListen,
+        canStartCapture: speechRecognition.canStartCapture
+      });
       speechRecognition.notifyTTSStarted();
+      // Clear any pending restart when TTS starts
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
     } else {
-      console.log('[EnhancedChatBar] TTS ended - notifying speech recognition');
+      console.log('[EnhancedChatBar] TTS ended - checking if microphone should restart');
       speechRecognition.notifyTTSEnded();
+      
+      // Only restart if there was user intent or quick action flag
+      if (speechRecognition.userIntentToListen || shouldEnableAfterTTSRef.current) {
+        console.log('[EnhancedChatBar] Restarting microphone after TTS completion', {
+          userIntentToListen: speechRecognition.userIntentToListen,
+          shouldEnableAfterTTS: shouldEnableAfterTTSRef.current
+        });
+        
+        // Clear any existing restart timeout
+        if (restartTimeoutRef.current) {
+          clearTimeout(restartTimeoutRef.current);
+        }
+        
+        // Restart microphone after a delay
+        restartTimeoutRef.current = setTimeout(() => {
+          console.log('[EnhancedChatBar] Executing delayed microphone restart');
+          speechRecognition.startListening();
+          shouldEnableAfterTTSRef.current = false; // Reset flag
+          restartTimeoutRef.current = null;
+        }, 500);
+      }
     }
   }, [isTTSSpeaking]);
 
@@ -52,24 +101,9 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
     if (isNonTTSBusy && speechRecognition.isListening) {
       console.log('[EnhancedChatBar] Non-TTS busy (LLM processing) - stopping microphone');
       speechRecognition.notifyTTSStarted(); // Use TTS notification for consistency
-    } else if (!disabled && !isTTSSpeaking && speechRecognition.userIntentToListen) {
-      console.log('[EnhancedChatBar] System ready - restarting microphone directly');
-      
-      // Clear TTS state first
-      speechRecognition.notifyTTSEnded();
-      
-      // Clear any existing restart timeout to prevent multiple restarts
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-      }
-      
-      // Then directly restart the microphone
-      restartTimeoutRef.current = setTimeout(() => {
-        console.log('[EnhancedChatBar] Direct restart after TTS completion');
-        speechRecognition.startListening();
-        restartTimeoutRef.current = null;
-      }, 200);
     }
+    // Remove the automatic restart logic from here - it's causing premature activation
+    // The restart should only happen from the TTS end notification or manual user action
   }, [disabled, isTTSSpeaking]);
 
   // Update input value when speech recognition provides transcript
@@ -79,7 +113,7 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
       speechRecognition.resetTranscript();
       setLastSpeechTime(Date.now());
     }
-  }, [speechRecognition.transcript, speechRecognition]);
+  }, [speechRecognition.transcript]);
 
   // Update last speech time when there's interim results (user is actively speaking)
   useEffect(() => {
@@ -96,7 +130,7 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [speechRecognition.error, speechRecognition]);
+  }, [speechRecognition.error]);
 
   // Auto-send after pause in speech (with delay)
   useEffect(() => {
@@ -327,4 +361,4 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
 
     </div>
   );
-};
+});

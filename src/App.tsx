@@ -73,7 +73,7 @@ export const App: React.FC = () => {
   const [showIOSWarning, setShowIOSWarning] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(true); // Temporary debug flag
+  const [showDebug, setShowDebug] = useState(false); // Hide debug by default now that it's working
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   
   // Global debug logger for hooks to use
@@ -396,6 +396,12 @@ export const App: React.FC = () => {
                        personalitySystem.currentPersonality === 'casual' ? 'home' : 'park'}
             className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none"
           >
+            {/* Debug toggle button */}
+            <button 
+              className="absolute top-2 right-2 z-30 bg-blue-600 text-white text-xs px-2 py-1 rounded"
+              onClick={() => setShowDebug(!showDebug)}
+            >Debug</button>
+            
             {/* NEW Debug Overlay v2.0 */}
             {showDebug && (
               <div className="absolute top-2 left-2 z-30 bg-black/80 text-white text-xs p-2 rounded max-w-sm">
@@ -423,6 +429,10 @@ export const App: React.FC = () => {
                   className="mt-2 text-xs bg-white text-black px-2 py-1 rounded"
                   onClick={() => setShowDebug(false)}
                 >Hide</button>
+                <button 
+                  className="mt-1 text-xs bg-green-600 text-white px-2 py-1 rounded ml-2"
+                  onClick={() => setDebugLogs([])}
+                >Clear</button>
               </div>
             )}
             

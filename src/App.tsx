@@ -260,7 +260,15 @@ export const App: React.FC = () => {
         logCounter.current++;
         setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Setting isTalkingHeadSpeaking TRUE`].slice(-10));
         speakingStartTimeRef.current = Date.now(); // Track when speaking started
+        
+        // Force synchronous state update with multiple setState calls
         setIsTalkingHeadSpeaking(true);
+        
+        // Add a small delay to ensure state propagates before TalkingHead speak
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        logCounter.current++;
+        setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] State should now be TRUE - checking...`].slice(-10));
 
         // Notify microphone manager that TTS is starting (redundant-safe)
         try {
@@ -290,6 +298,9 @@ export const App: React.FC = () => {
           logger.warn('playAudio failed (continuing with avatar only):', playErr);
         }
 
+        // Small delay to ensure all states are properly set before calling TalkingHead
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
         // Drive avatar lipsync with the real audio buffer (TalkingHead's speech is muted)
         talkingHead.speak(audio, talkingHeadTimings).then(() => {
           logger.log('TalkingHead speak completed');
@@ -389,10 +400,18 @@ export const App: React.FC = () => {
             {showDebug && (
               <div className="absolute top-2 left-2 z-30 bg-black/80 text-white text-xs p-2 rounded max-w-sm">
                 <div className="font-mono space-y-1">
-                  <div>isTalkingHeadSpeaking: {isTalkingHeadSpeaking.toString()}</div>
-                  <div>talkingHead.isSpeaking: {talkingHead.isSpeaking.toString()}</div>
-                  <div>isCurrentlySpeaking: {isCurrentlySpeaking.toString()}</div>
-                  <div>isAsking: {isAsking.toString()}</div>
+                  <div className={isTalkingHeadSpeaking ? 'text-green-400' : 'text-red-400'}>
+                    isTalkingHeadSpeaking: {isTalkingHeadSpeaking.toString()}
+                  </div>
+                  <div className={talkingHead.isSpeaking ? 'text-green-400' : 'text-red-400'}>
+                    talkingHead.isSpeaking: {talkingHead.isSpeaking.toString()}
+                  </div>
+                  <div className={isCurrentlySpeaking ? 'text-green-400' : 'text-red-400'}>
+                    isCurrentlySpeaking: {isCurrentlySpeaking.toString()}
+                  </div>
+                  <div className={isAsking ? 'text-yellow-400' : 'text-gray-400'}>
+                    isAsking: {isAsking.toString()}
+                  </div>
                 </div>
                 <div className="mt-2 text-xs border-t border-gray-500 pt-2">
                   <div className="font-bold">Recent Logs:</div>

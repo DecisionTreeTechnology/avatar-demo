@@ -361,7 +361,7 @@ export const App: React.FC = () => {
                        personalitySystem.currentPersonality === 'casual' ? 'home' : 'park'}
             className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none"
           >
-            {/* Temporary Debug Overlay */}
+            {/* NEW Debug Overlay v2.0 */}
             {showDebug && (
               <div className="absolute top-2 left-2 z-30 bg-black/80 text-white text-xs p-2 rounded max-w-sm">
                 <div className="font-mono space-y-1">

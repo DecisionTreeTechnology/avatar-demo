@@ -193,12 +193,15 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         }, (audioBuffer.duration * 1000) + 1000);
         
         if (typeof headRef.current?.speakAudio === 'function') {
+          console.log('[useTalkingHead] Calling speakAudio - keeping isSpeaking true');
           headRef.current.speakAudio(audioObj, {}, () => {
+            console.log('[useTalkingHead] speakAudio callback - setting isSpeaking false');
             clearTimeout(timeoutId);
             setSpeaking(false);
             resolve();
           });
         } else {
+          console.log('[useTalkingHead] ERROR: speakAudio method not available! Setting isSpeaking false immediately');
           clearTimeout(timeoutId);
           setSpeaking(false);
           resolve();

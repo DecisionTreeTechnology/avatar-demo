@@ -235,6 +235,7 @@ export const App: React.FC = () => {
         logger.log('Setting isTalkingHeadSpeaking to true');
         
         // Set speaking state manually since we're bypassing playAudio
+        console.log('[App] Setting isTalkingHeadSpeaking to TRUE');
         setIsTalkingHeadSpeaking(true);
 
         // Notify microphone manager that TTS is starting (redundant-safe)
@@ -273,6 +274,7 @@ export const App: React.FC = () => {
             clearTimeout(speakingTimeoutRef.current);
             speakingTimeoutRef.current = null;
           }
+          console.log('[App] TalkingHead speak completed - setting isTalkingHeadSpeaking to FALSE');
           setIsTalkingHeadSpeaking(false);
 
           // Notify microphone manager that TTS has ended

@@ -198,7 +198,7 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
                   : 'bg-white/10 text-white/90 border border-white/10'
               }`}
             >
-              <div className="text-sm leading-relaxed">{message.text}</div>
+              <div className="text-sm leading-relaxed whitespace-pre-line break-words overflow-wrap-anywhere">{message.text}</div>
             </div>
           </div>
         ))}

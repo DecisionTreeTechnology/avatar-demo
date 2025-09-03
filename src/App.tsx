@@ -28,6 +28,7 @@ export const App: React.FC = () => {
   // Combined speaking state - use either our manual state or TalkingHead's state
   const isCurrentlySpeaking = isTalkingHeadSpeaking || talkingHead.isSpeaking;
   
+  
   // Combined stop function that stops both TTS audio and TalkingHead animation
   const handleStopSpeaking = useCallback(() => {
     console.log('[App] Stopping both TTS and TalkingHead');
@@ -48,7 +49,6 @@ export const App: React.FC = () => {
     try {
       talkingHead.stopSpeaking();
       console.log('[App] TalkingHead stopSpeaking called');
-      (window as any).addDebugLog?.('[App] STOP button clicked - stopping TalkingHead');
     } catch (error) {
       console.warn('[App] Error stopping TalkingHead:', error);
     }
@@ -56,8 +56,6 @@ export const App: React.FC = () => {
     // Reset our local speaking state immediately
     setIsTalkingHeadSpeaking(false);
     
-    logCounter.current++;
-    setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] STOP - setting isTalkingHeadSpeaking FALSE immediately`].slice(-10));
 
     // Ensure microphone manager knows speaking has ended
     try {
@@ -80,21 +78,7 @@ export const App: React.FC = () => {
   const [showIOSWarning, setShowIOSWarning] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(false); // Hide debug by default now that it's working
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
   
-  // Global debug logger for hooks to use
-  const logCounter = useRef(0);
-  useEffect(() => {
-    (window as any).addDebugLog = (message: string) => {
-      logCounter.current++;
-      const timestampedMessage = `${logCounter.current}: ${message}`;
-      setDebugLogs(prev => [...prev.slice(-9), timestampedMessage].slice(-10)); // Show last 10 logs
-    };
-    return () => {
-      delete (window as any).addDebugLog;
-    };
-  }, []);
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showAnimationControls, setShowAnimationControls] = useState(false);
@@ -164,12 +148,8 @@ export const App: React.FC = () => {
       
       // iOS Safari TalkingHead warm-up - must happen during user gesture
       console.log('[App] Calling warmUpForIOS...');
-      logCounter.current++;
-      setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Calling warmUpForIOS`].slice(-10));
       await talkingHead.warmUpForIOS();
       console.log('[App] warmUpForIOS completed');
-      logCounter.current++;
-      setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] warmUpForIOS completed`].slice(-10));
       // If currently speaking, stop ongoing TTS/animation before new request
       if (isCurrentlySpeaking) {
         handleStopSpeaking();
@@ -268,8 +248,6 @@ export const App: React.FC = () => {
         
         // Set speaking state manually since we're bypassing playAudio
         console.log('[App] Setting isTalkingHeadSpeaking to TRUE');
-        logCounter.current++;
-        setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Setting isTalkingHeadSpeaking TRUE`].slice(-10));
         speakingStartTimeRef.current = Date.now(); // Track when speaking started
         stopRequestedRef.current = false; // Reset stop flag for new speech
         
@@ -279,8 +257,6 @@ export const App: React.FC = () => {
         // Add a small delay to ensure state propagates before TalkingHead speak
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        logCounter.current++;
-        setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] State should now be TRUE - checking...`].slice(-10));
 
         // Notify microphone manager that TTS is starting (redundant-safe)
         try {
@@ -330,17 +306,11 @@ export const App: React.FC = () => {
             const expectedDuration = audio.duration * 1000; // Expected TTS duration
             const remainingTime = Math.max(0, expectedDuration - elapsed + 500); // Extra 500ms buffer
             
-            logCounter.current++;
-            setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] TalkingHead completed - waiting ${remainingTime}ms for TTS`].slice(-10));
             
             setTimeout(() => {
-              logCounter.current++;
-              setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Setting isTalkingHeadSpeaking FALSE - normal completion`].slice(-10));
               setIsTalkingHeadSpeaking(false);
             }, remainingTime);
           } else {
-            logCounter.current++;
-            setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] TalkingHead completed - stop was requested, skipping delay`].slice(-10));
           }
 
           // Notify microphone manager that TTS has ended
@@ -374,15 +344,212 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error('[App] Error in handleAsk:', e);
       
-      const errorMessage = e instanceof Error ? e.message : 'Something went wrong';
-      setLastError(errorMessage);
+      // Parse and provide user-friendly error messages
+      let userFriendlyError = 'Something went wrong. Please try again.';
       
-      // Show error emotion on avatar
-      talkingHead.setEmotion('confused', 'normal');
+      if (e instanceof Error) {
+        const errorMessage = e.message.toLowerCase();
+        
+        // Handle content policy errors with special consideration for mental health crisis situations
+        if (errorMessage.includes('content management policy') || 
+            errorMessage.includes('responsibleaipolicyviolation') ||
+            errorMessage.includes('filtered') ||
+            (e.message.includes('400') && e.message.includes('error'))) {
+          
+          // Check if this might be a mental health crisis situation by looking at the original user question
+          const userInput = question?.toLowerCase() || '';
+          const crisisKeywords = [
+            'suicide', 'kill myself', 'end my life', 'want to die', 'hurt myself', 
+            'self harm', 'cut myself', 'overdose', 'jump off', 'hang myself',
+            'worthless', 'hopeless', 'can\'t go on', 'better off dead', 'end it all'
+          ];
+          
+          const isMentalHealthCrisis = crisisKeywords.some(keyword => userInput.includes(keyword));
+          
+          if (isMentalHealthCrisis) {
+            // Instead of showing this as an error, create a proper chat response
+            const crisisResponse = `I hear that you're going through an incredibly difficult time right now, and I want you to know that your feelings are valid. While I have some limitations in how I can respond to certain topics, please know that you're not alone and there is help available.
+
+If you're having thoughts of suicide or self-harm, please reach out for immediate support:
+• National Suicide Prevention Lifeline: 988 or 1-800-273-8255
+• Crisis Text Line: Text HOME to 741741
+• International Association for Suicide Prevention: https://www.iasp.info/resources/Crisis_Centres/
+
+Your life has value, and there are people who want to help you through this difficult time. Would you like to talk about what's been making you feel this way, or how we might find some support resources together?`;
+
+            // Apply personality to the crisis response
+            const personalizedCrisisResponse = personalitySystem.modifyResponse(
+              crisisResponse,
+              { needsEmpathy: true, isGreeting: false }
+            );
+
+            // Add crisis response as a chat message instead of an error
+            const crisisMessage: ChatMessage = {
+              id: `crisis-${Date.now()}`,
+              text: personalizedCrisisResponse,
+              isUser: false,
+              timestamp: new Date()
+            };
+            setChatMessages(prev => [...prev, crisisMessage]);
+
+            // Show empathetic emotion
+            talkingHead.setEmotion('sad', 'subtle');
+
+            // Make the avatar speak the crisis response - following normal flow pattern
+            try {
+              // FIRST: Set speaking state BEFORE getting TTS audio
+              speakingStartTimeRef.current = Date.now();
+              stopRequestedRef.current = false;
+              
+              // Force synchronous state update FIRST
+              setIsTalkingHeadSpeaking(true);
+              
+              // Add delay to ensure state propagates before anything else
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
+              // NOW get the TTS audio 
+              const { audio, wordTimings } = await speakText(personalizedCrisisResponse);
+              
+              // Convert word timings for TalkingHead
+              const talkingHeadTimings = wordTimings?.map(timing => ({
+                word: timing.word,
+                start: timing.start || 0,
+                end: timing.end || 0
+              }));
+              
+              logger.log('Starting crisis response avatar speech with lip sync, duration:', audio.duration);
+              
+              // Create timeout to keep button visible  
+              const crisisDuration = audio.duration * 1000;
+              const crisisTimeout = Math.max(crisisDuration + 2000, 5000);
+              
+              logger.log('Crisis response: Setting timeout for', crisisTimeout, 'ms');
+              
+              speakingTimeoutRef.current = setTimeout(() => {
+                logger.log('Crisis response timeout reached, setting speaking to false');
+                setIsTalkingHeadSpeaking(false);
+                setIsAsking(false); // Reset asking state on timeout
+                speakingTimeoutRef.current = null;
+              }, crisisTimeout);
+              
+              // Play the actual TTS audio
+              try {
+                void playAudio(audio, wordTimings, () => {
+                  logger.log('Crisis response playAudio onEnd fired');
+                });
+              } catch (playErr) {
+                logger.warn('Crisis response playAudio failed (continuing with avatar only):', playErr);
+              }
+
+              // Small delay to ensure all states are properly set before calling TalkingHead
+              await new Promise(resolve => setTimeout(resolve, 50));
+              
+              // Drive avatar lipsync with the crisis response
+              talkingHead.speak(audio, talkingHeadTimings).then(() => {
+                logger.log('Crisis TalkingHead speak completed');
+                // Clear extended hold if still pending and release speaking state
+                if (speakingTimeoutRef.current) {
+                  clearTimeout(speakingTimeoutRef.current);
+                  speakingTimeoutRef.current = null;
+                }
+                console.log('[App] Crisis TalkingHead speak completed - setting isTalkingHeadSpeaking to FALSE');
+                
+                // Only reset state if stop wasn't already requested
+                if (!stopRequestedRef.current) {
+                  // Normal completion - wait for TTS audio to finish too
+                  const elapsed = Date.now() - speakingStartTimeRef.current;
+                  const expectedDuration = crisisDuration; // Expected TTS duration (already in ms)
+                  const remainingTime = Math.max(0, expectedDuration - elapsed + 500); // Extra 500ms buffer
+                  
+                  setTimeout(() => {
+                    setIsTalkingHeadSpeaking(false);
+                    setIsAsking(false); // Reset asking state when crisis TTS completes
+                  }, remainingTime);
+                }
+
+                // Notify microphone manager that TTS has ended
+                try {
+                  const mic = getMicrophoneManager();
+                  mic.notifyTTSEnded();
+                } catch {}
+                
+              }).catch((speakError) => {
+                logger.warn('Crisis TalkingHead speak error (continuing):', speakError);
+                if (speakingTimeoutRef.current) {
+                  clearTimeout(speakingTimeoutRef.current);
+                  speakingTimeoutRef.current = null;
+                }
+                setIsTalkingHeadSpeaking(false);
+                setIsAsking(false); // Reset asking state on error
+
+                // Ensure microphone manager is reset even on error
+                try {
+                  const mic = getMicrophoneManager();
+                  mic.notifyTTSEnded();
+                } catch {}
+              });
+              
+            } catch (speechError) {
+              console.warn('Crisis response TTS failed, but message was delivered:', speechError);
+              setIsTalkingHeadSpeaking(false);
+              setIsAsking(false); // Reset asking state on TTS error
+              // Also notify microphone manager on error
+              try {
+                const mic = getMicrophoneManager();
+                mic.notifyTTSEnded();
+              } catch {}
+            }
+
+            // Clear the error and don't show it as an error message
+            setLastError(null);
+            // DON'T call setIsAsking(false) here - let the TTS completion handle it
+            return; // Exit early to avoid showing this as an error
+          } else {
+            userFriendlyError = "I'm sorry, but I can't respond to that request due to content guidelines. Please try rephrasing your question or asking something else.";
+          }
+        }
+        // Handle rate limiting
+        else if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+          userFriendlyError = "I'm receiving too many requests right now. Please wait a moment and try again.";
+        }
+        // Handle network/connection errors
+        else if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('connection')) {
+          userFriendlyError = "I'm having trouble connecting right now. Please check your internet connection and try again.";
+        }
+        // Handle authentication errors
+        else if (errorMessage.includes('unauthorized') || errorMessage.includes('401') || errorMessage.includes('403')) {
+          userFriendlyError = "There seems to be an authentication issue. Please refresh the page and try again.";
+        }
+        // For other specific errors, show a generic message without exposing technical details
+        else if (errorMessage.includes('error') && e.message.length > 100) {
+          userFriendlyError = "I encountered an unexpected issue. Please try asking your question differently.";
+        }
+        // For short, clear errors, show them as-is
+        else if (e.message.length < 100 && !e.message.includes('{')) {
+          userFriendlyError = e.message;
+        }
+      }
+      
+      setLastError(userFriendlyError);
+      
+      // Show appropriate emotion on avatar based on the situation
+      const userInput = question?.toLowerCase() || '';
+      const crisisKeywords = [
+        'suicide', 'kill myself', 'end my life', 'want to die', 'hurt myself', 
+        'self harm', 'cut myself', 'overdose', 'jump off', 'hang myself',
+        'worthless', 'hopeless', 'can\'t go on', 'better off dead', 'end it all'
+      ];
+      const isMentalHealthCrisis = crisisKeywords.some(keyword => userInput.includes(keyword));
+      
+      if (isMentalHealthCrisis) {
+        talkingHead.setEmotion('sad', 'subtle'); // Show empathy and care
+      } else {
+        talkingHead.setEmotion('confused', 'normal');
+      }
       
       // Apply personality to error message
       const personalizedError = personalitySystem.modifyResponse(
-        `I'm sorry, I encountered an error: ${errorMessage}`,
+        userFriendlyError,
         { needsEmpathy: true }
       );
       
@@ -414,45 +581,6 @@ export const App: React.FC = () => {
                        personalitySystem.currentPersonality === 'casual' ? 'home' : 'park'}
             className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none"
           >
-            {/* Debug toggle button */}
-            <button 
-              className="absolute top-2 right-2 z-30 bg-blue-600 text-white text-xs px-2 py-1 rounded"
-              onClick={() => setShowDebug(!showDebug)}
-            >Debug</button>
-            
-            {/* NEW Debug Overlay v2.0 */}
-            {showDebug && (
-              <div className="absolute top-2 left-2 z-30 bg-black/80 text-white text-xs p-2 rounded max-w-sm">
-                <div className="font-mono space-y-1">
-                  <div className={isTalkingHeadSpeaking ? 'text-green-400' : 'text-red-400'}>
-                    isTalkingHeadSpeaking: {isTalkingHeadSpeaking.toString()}
-                  </div>
-                  <div className={talkingHead.isSpeaking ? 'text-green-400' : 'text-red-400'}>
-                    talkingHead.isSpeaking: {talkingHead.isSpeaking.toString()}
-                  </div>
-                  <div className={isCurrentlySpeaking ? 'text-green-400' : 'text-red-400'}>
-                    isCurrentlySpeaking: {isCurrentlySpeaking.toString()}
-                  </div>
-                  <div className={isAsking ? 'text-yellow-400' : 'text-gray-400'}>
-                    isAsking: {isAsking.toString()}
-                  </div>
-                </div>
-                <div className="mt-2 text-xs border-t border-gray-500 pt-2">
-                  <div className="font-bold">Recent Logs:</div>
-                  {debugLogs.map((log, i) => (
-                    <div key={i} className="truncate">{log}</div>
-                  ))}
-                </div>
-                <button 
-                  className="mt-2 text-xs bg-white text-black px-2 py-1 rounded"
-                  onClick={() => setShowDebug(false)}
-                >Hide</button>
-                <button 
-                  className="mt-1 text-xs bg-green-600 text-white px-2 py-1 rounded ml-2"
-                  onClick={() => setDebugLogs([])}
-                >Clear</button>
-              </div>
-            )}
             
             {!avatarReady && (
               <div className="absolute inset-0 flex items-center justify-center z-20 bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur-sm">
@@ -552,15 +680,22 @@ export const App: React.FC = () => {
               
               {/* Error Display */}
               {lastError && (
-                <div className="p-3 bg-red-900/50 border border-red-600 rounded-lg text-red-300 mb-4">
+                <div className={`p-4 rounded-lg mb-4 ${
+                  lastError.includes('National Suicide Prevention') || lastError.includes('Crisis Text Line') 
+                    ? 'bg-blue-900/30 border border-blue-500/50 text-blue-100' // Supportive blue for crisis messages
+                    : 'bg-red-900/50 border border-red-600 text-red-300' // Red for other errors
+                }`}>
                   <div className="flex items-start justify-between">
-                    <div>
-                      <strong>❌ Error:</strong>
-                      <p className="mt-1 text-sm">{lastError}</p>
+                    <div className="flex-1">
+                      <p className="text-sm">{lastError}</p>
                     </div>
                     <button
                       onClick={() => setLastError(null)}
-                      className="ml-2 text-red-400 hover:text-red-200"
+                      className={`ml-2 ${
+                        lastError.includes('National Suicide Prevention') || lastError.includes('Crisis Text Line')
+                          ? 'text-blue-400 hover:text-blue-200' // Blue for crisis messages
+                          : 'text-red-400 hover:text-red-200' // Red for other errors
+                      }`}
                     >
                       ×
                     </button>

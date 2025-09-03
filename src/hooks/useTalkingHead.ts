@@ -203,7 +203,6 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
             
             if (stopRequestedRef.current || reason === 'stopped') {
               // Immediate cleanup if stop was requested
-              (window as any).addDebugLog?.('[TH] STOPPED - setting isSpeaking FALSE immediately');
               setSpeaking(false);
               resolve();
             } else {
@@ -212,7 +211,6 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
               const remainingTime = Math.max(0, minSpeakingDuration - elapsed);
               
               setTimeout(() => {
-                (window as any).addDebugLog?.('[TH] setting isSpeaking FALSE after delay');
                 setSpeaking(false);
                 resolve();
               }, remainingTime);
@@ -221,14 +219,12 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         };
         
         const timeoutId = setTimeout(() => {
-          (window as any).addDebugLog?.('[TH] timeout reached');
           cleanup();
         }, (audioBuffer.duration * 1000) + 1000);
         
         // Check for stop request periodically
         const stopCheckInterval = setInterval(() => {
           if (stopRequestedRef.current) {
-            (window as any).addDebugLog?.('[TH] Stop requested - interrupting speech');
             clearTimeout(timeoutId);
             clearInterval(stopCheckInterval);
             cleanup('stopped');
@@ -237,16 +233,13 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         
         if (typeof headRef.current?.speakAudio === 'function') {
           console.log('[useTalkingHead] Calling speakAudio - keeping isSpeaking true');
-          (window as any).addDebugLog?.('[TH] speakAudio available - calling');
           headRef.current.speakAudio(audioObj, {}, () => {
             console.log('[useTalkingHead] speakAudio callback - setting isSpeaking false');
-            (window as any).addDebugLog?.('[TH] speakAudio callback - done');
             clearTimeout(timeoutId);
             cleanup();
           });
         } else {
           console.log('[useTalkingHead] ERROR: speakAudio method not available! Setting isSpeaking false immediately');
-          (window as any).addDebugLog?.('[TH] ERROR: speakAudio NOT available!');
           clearTimeout(timeoutId);
           cleanup();
         }
@@ -274,20 +267,16 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
 
   // iOS Safari warm-up method - must be called from user gesture
   const warmUpForIOS = useCallback(async () => {
-    (window as any).addDebugLog?.('[TH] warmUpForIOS called');
     
     if (!headRef.current) {
-      (window as any).addDebugLog?.('[TH] no headRef - skip warmup');
       return;
     }
     
     const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
     if (!isMobile) {
-      (window as any).addDebugLog?.('[TH] not mobile - skip warmup');
       return;
     }
     
-    (window as any).addDebugLog?.('[TH] mobile detected - warming up...');
     
     try {
       // Create a tiny silent audio buffer to initialize the audio system
@@ -327,7 +316,6 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
   // Stop current speech
   const stopSpeaking = useCallback(() => {
     console.log('[useTalkingHead] stopSpeaking called - stopping current speech and animation');
-    (window as any).addDebugLog?.('[TH] stopSpeaking called');
     stopRequestedRef.current = true;
     
     // Try to stop the TalkingHead animation if possible

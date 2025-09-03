@@ -39,14 +39,13 @@ export const App: React.FC = () => {
     // Stop TTS audio playback
     stopSpeaking();
     
-    // Stop TalkingHead animation if available
-    if (talkingHead.head && typeof talkingHead.head.stopSpeaking === 'function') {
-      try {
-        talkingHead.head.stopSpeaking();
-        console.log('[App] TalkingHead stopSpeaking called');
-      } catch (error) {
-        console.warn('[App] Error stopping TalkingHead:', error);
-      }
+    // Stop TalkingHead animation using our custom method
+    try {
+      talkingHead.stopSpeaking();
+      console.log('[App] TalkingHead stopSpeaking called');
+      (window as any).addDebugLog?.('[App] STOP button clicked - stopping TalkingHead');
+    } catch (error) {
+      console.warn('[App] Error stopping TalkingHead:', error);
     }
     
     // Reset our local speaking state

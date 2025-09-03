@@ -21,6 +21,7 @@ export interface UseTalkingHeadResult {
   isSpeaking: boolean;
   error: string | null;
   speak: (audio: AudioBuffer, timings?: SpeakWordTiming[]) => Promise<void>;
+  stopSpeaking: () => void; // Method to stop current speech
   resetCamera: () => void;
   warmUpForIOS: () => Promise<void>; // New method for iOS Safari audio initialization
   // Enhanced animation methods
@@ -37,6 +38,7 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
   const [isReady, setReady] = useState(false);
   const [isSpeaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const stopRequestedRef = useRef(false); // Flag to stop current speech
   
   console.log('[useTalkingHead] Hook called with avatarUrl:', avatarUrl);
 
@@ -173,7 +175,8 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
       return;
     }
     
-    
+    // Reset stop flag for new speech
+    stopRequestedRef.current = false;
     setSpeaking(true);
     
     // Small delay to ensure state propagates before any callbacks
@@ -194,19 +197,26 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         const startTime = Date.now();
         const minSpeakingDuration = 1000; // Keep speaking state for at least 1 second
         
-        const cleanup = () => {
+        const cleanup = (reason = 'normal') => {
           if (!callbackFired) {
             callbackFired = true;
             
-            // Ensure minimum speaking duration
-            const elapsed = Date.now() - startTime;
-            const remainingTime = Math.max(0, minSpeakingDuration - elapsed);
-            
-            setTimeout(() => {
-              (window as any).addDebugLog?.('[TH] setting isSpeaking FALSE after delay');
+            if (stopRequestedRef.current || reason === 'stopped') {
+              // Immediate cleanup if stop was requested
+              (window as any).addDebugLog?.('[TH] STOPPED - setting isSpeaking FALSE immediately');
               setSpeaking(false);
               resolve();
-            }, remainingTime);
+            } else {
+              // Normal cleanup with minimum duration
+              const elapsed = Date.now() - startTime;
+              const remainingTime = Math.max(0, minSpeakingDuration - elapsed);
+              
+              setTimeout(() => {
+                (window as any).addDebugLog?.('[TH] setting isSpeaking FALSE after delay');
+                setSpeaking(false);
+                resolve();
+              }, remainingTime);
+            }
           }
         };
         
@@ -214,6 +224,16 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
           (window as any).addDebugLog?.('[TH] timeout reached');
           cleanup();
         }, (audioBuffer.duration * 1000) + 1000);
+        
+        // Check for stop request periodically
+        const stopCheckInterval = setInterval(() => {
+          if (stopRequestedRef.current) {
+            (window as any).addDebugLog?.('[TH] Stop requested - interrupting speech');
+            clearTimeout(timeoutId);
+            clearInterval(stopCheckInterval);
+            cleanup('stopped');
+          }
+        }, 100);
         
         if (typeof headRef.current?.speakAudio === 'function') {
           console.log('[useTalkingHead] Calling speakAudio - keeping isSpeaking true');
@@ -304,6 +324,13 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     }
   }, []);
 
+  // Stop current speech
+  const stopSpeaking = useCallback(() => {
+    (window as any).addDebugLog?.('[TH] stopSpeaking called');
+    stopRequestedRef.current = true;
+    setSpeaking(false);
+  }, []);
+
   return { 
     containerRef, 
     head: headRef.current, 
@@ -311,6 +338,7 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     isSpeaking, 
     error, 
     speak, 
+    stopSpeaking,
     resetCamera,
     warmUpForIOS,
     setEmotion,

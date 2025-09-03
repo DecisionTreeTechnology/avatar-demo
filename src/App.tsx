@@ -72,7 +72,6 @@ export const App: React.FC = () => {
   const [showIOSWarning, setShowIOSWarning] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>('');
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showAnimationControls, setShowAnimationControls] = useState(false);
@@ -137,11 +136,7 @@ export const App: React.FC = () => {
       await initAudioContext();
       
       // iOS Safari TalkingHead warm-up - must happen during user gesture
-      try {
-        await talkingHead.warmUpForIOS();
-      } catch (warmUpError) {
-        console.warn('[App] iOS TalkingHead warm-up failed:', warmUpError);
-      }
+      await talkingHead.warmUpForIOS();
       // If currently speaking, stop ongoing TTS/animation before new request
       if (isCurrentlySpeaking) {
         handleStopSpeaking();
@@ -234,9 +229,6 @@ export const App: React.FC = () => {
           start: timing.start || 0,
           end: timing.end || 0
         }));
-        
-        // Set debug info for on-screen display
-        setDebugInfo(`Audio: ${audio.duration.toFixed(2)}s, Words: ${talkingHeadTimings.length}, Timings: [${talkingHeadTimings.slice(0, 3).map(t => `${t.word}:${t.start}-${t.end}`).join(', ')}${talkingHeadTimings.length > 3 ? '...' : ''}]`);
         
         logger.log('Starting avatar speech with lip sync, duration:', audio.duration);
         logger.log('Setting isTalkingHeadSpeaking to true');
@@ -353,12 +345,6 @@ export const App: React.FC = () => {
                        personalitySystem.currentPersonality === 'casual' ? 'home' : 'park'}
             className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none"
           >
-            {/* Debug info overlay */}
-            {debugInfo && (
-              <div className="absolute top-2 left-2 z-30 bg-black/80 text-white text-xs p-2 rounded max-w-xs">
-                <div className="font-mono">{debugInfo}</div>
-              </div>
-            )}
             
             {!avatarReady && (
               <div className="absolute inset-0 flex items-center justify-center z-20 bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur-sm">

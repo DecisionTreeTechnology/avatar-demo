@@ -222,11 +222,6 @@ export function useEnhancedAzureTTS(opts: AzureTTSOptions = {}) {
         end: (wtimes[i] || 0) + (wdurations[i] || 0)
       }));
       
-      console.log('[Enhanced TTS] Debug - Words array:', words);
-      console.log('[Enhanced TTS] Debug - wtimes array:', wtimes);
-      console.log('[Enhanced TTS] Debug - wdurations array:', wdurations);
-      console.log('[Enhanced TTS] Debug - Final wordTimings:', wordTimings);
-      
       console.log('[Enhanced TTS] Synthesis completed successfully:', {
         audioBufferDuration: audioBuffer.duration,
         wordCount: wordTimings.length,

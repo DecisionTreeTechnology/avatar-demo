@@ -170,27 +170,14 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
 
   const speak = useCallback(async (audioBuffer: AudioBuffer, timings?: SpeakWordTiming[]) => {
     if (!headRef.current) {
-      console.error('[useTalkingHead] No head instance available');
       return;
     }
     
-    console.log('[useTalkingHead] TalkingHead instance:', {
-      hasInstance: !!headRef.current,
-      hasSpeakAudio: typeof headRef.current?.speakAudio === 'function',
-      instanceType: headRef.current?.constructor?.name
-    });
     
     setSpeaking(true);
     
     try {
-      // Debug timing data
-      console.log('[useTalkingHead] Debug - Audio duration:', audioBuffer.duration);
-      console.log('[useTalkingHead] Debug - Timings received:', timings);
-      console.log('[useTalkingHead] Debug - Words:', timings?.map(t => t.word));
-      console.log('[useTalkingHead] Debug - Start times:', timings?.map(t => t.start));
-      console.log('[useTalkingHead] Debug - End times:', timings?.map(t => t.end));
-      
-      // Create simple audio object for TalkingHead - back to basics
+      // Create audio object for TalkingHead
       const audioObj = {
         audio: audioBuffer,
         words: timings?.map(t => t.word) || [],
@@ -198,34 +185,20 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         wdurations: timings?.map(t => t.end - t.start) || []
       };
       
-      console.log('[useTalkingHead] Debug - Final audioObj:', audioObj);
-      
-      // Simple promise-based approach with debug tracking
+      // Simple promise-based approach
       await new Promise<void>((resolve) => {
         const timeoutId = setTimeout(() => {
-          console.log('[useTalkingHead] TIMEOUT - speakAudio did not complete');
           setSpeaking(false);
           resolve();
         }, (audioBuffer.duration * 1000) + 1000);
         
         if (typeof headRef.current?.speakAudio === 'function') {
-          console.log('[useTalkingHead] Calling TalkingHead.speakAudio...');
-          try {
-            headRef.current.speakAudio(audioObj, {}, () => {
-              console.log('[useTalkingHead] SUCCESS - speakAudio callback fired!');
-              clearTimeout(timeoutId);
-              setSpeaking(false);
-              resolve();
-            });
-            console.log('[useTalkingHead] speakAudio call completed (waiting for callback)');
-          } catch (error) {
-            console.error('[useTalkingHead] ERROR calling speakAudio:', error);
+          headRef.current.speakAudio(audioObj, {}, () => {
             clearTimeout(timeoutId);
             setSpeaking(false);
             resolve();
-          }
+          });
         } else {
-          console.error('[useTalkingHead] speakAudio method not available!');
           clearTimeout(timeoutId);
           setSpeaking(false);
           resolve();
@@ -255,27 +228,23 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
   // iOS Safari warm-up method - must be called from user gesture
   const warmUpForIOS = useCallback(async () => {
     if (!headRef.current) {
-      console.warn('[useTalkingHead] No TalkingHead instance for iOS warm-up');
       return;
     }
     
     const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
     if (!isMobile) {
-      console.log('[useTalkingHead] Desktop detected, skipping iOS warm-up');
       return;
     }
     
     try {
-      console.log('[useTalkingHead] Warming up TalkingHead for iOS Safari...');
-      
       // Create a tiny silent audio buffer to initialize the audio system
       const audioCtx = (window as any).globalAudioContext;
       if (audioCtx) {
-        const silentBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.01, audioCtx.sampleRate); // 10ms silent
+        const silentBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.01, audioCtx.sampleRate);
         const channelData = silentBuffer.getChannelData(0);
-        channelData.fill(0); // Ensure silence
+        channelData.fill(0);
         
-        // Call speakAudio with empty/minimal data to initialize the system
+        // Call speakAudio with silent data to initialize the system
         const warmUpObj = {
           audio: silentBuffer,
           words: [],
@@ -284,7 +253,7 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         };
         
         await new Promise<void>((resolve) => {
-          const timeoutId = setTimeout(resolve, 100); // Quick timeout
+          const timeoutId = setTimeout(resolve, 100);
           
           if (typeof headRef.current?.speakAudio === 'function') {
             headRef.current.speakAudio(warmUpObj, {}, () => {
@@ -296,11 +265,9 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
             resolve();
           }
         });
-        
-        console.log('[useTalkingHead] iOS Safari warm-up completed');
       }
     } catch (error) {
-      console.warn('[useTalkingHead] iOS warm-up failed:', error);
+      // Silent fail for iOS warm-up
     }
   }, []);
 

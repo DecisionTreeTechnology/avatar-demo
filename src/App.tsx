@@ -219,7 +219,7 @@ export const App: React.FC = () => {
 
         // First synthesize the audio and get word timings
         const { audio, wordTimings } = await speakText(reply);
-        
+
         // Convert word timings to TalkingHead format (milliseconds expected by library)
         const talkingHeadTimings = wordTimings.map((timing: { word: string; start: number; end: number }) => ({
           word: timing.word,
@@ -227,8 +227,8 @@ export const App: React.FC = () => {
           end: timing.end || 0
         }));
         
-        console.log('[App] Starting avatar speech with lip sync, duration:', audio.duration);
-        console.log('[App] Setting isTalkingHeadSpeaking to true');
+        logger.log('Starting avatar speech with lip sync, duration:', audio.duration);
+        logger.log('Setting isTalkingHeadSpeaking to true');
         
         // Set speaking state manually since we're bypassing playAudio
         setIsTalkingHeadSpeaking(true);
@@ -243,10 +243,10 @@ export const App: React.FC = () => {
         const duration = audio.duration * 1000; // Convert to milliseconds
         const generousTimeout = Math.max(duration + 2000, 5000); // At least 5 seconds or duration + 2 seconds
         
-        console.log('[App] Setting timeout for', generousTimeout, 'ms (audio duration:', duration, 'ms)');
+        logger.log('Setting timeout for', generousTimeout, 'ms (audio duration:', duration, 'ms)');
         
         speakingTimeoutRef.current = setTimeout(() => {
-          console.log('[App] Timeout reached, setting speaking to false');
+          logger.log('Timeout reached, setting speaking to false');
           setIsTalkingHeadSpeaking(false);
           speakingTimeoutRef.current = null;
         }, generousTimeout);
@@ -255,15 +255,15 @@ export const App: React.FC = () => {
         // Play actual audio using our AudioContext (reliable unlock)
         try {
           void playAudio(audio, wordTimings, () => {
-            console.log('[App] playAudio onEnd fired');
+            logger.log('playAudio onEnd fired');
           });
         } catch (playErr) {
-          console.warn('[App] playAudio failed (continuing with avatar only):', playErr);
+          logger.warn('playAudio failed (continuing with avatar only):', playErr);
         }
 
         // Drive avatar lipsync with the real audio buffer (TalkingHead's speech is muted)
         talkingHead.speak(audio, talkingHeadTimings).then(() => {
-          console.log('[App] TalkingHead speak completed');
+          logger.log('TalkingHead speak completed');
           // Clear extended hold if still pending and release speaking state
           if (speakingTimeoutRef.current) {
             clearTimeout(speakingTimeoutRef.current);
@@ -277,7 +277,7 @@ export const App: React.FC = () => {
             mic.notifyTTSEnded();
           } catch {}
         }).catch((speakError) => {
-          console.warn('[App] TalkingHead speak error (continuing):', speakError);
+          logger.warn('TalkingHead speak error (continuing):', speakError);
           if (speakingTimeoutRef.current) {
             clearTimeout(speakingTimeoutRef.current);
             speakingTimeoutRef.current = null;
@@ -291,10 +291,10 @@ export const App: React.FC = () => {
           } catch {}
         });
         
-        console.log('[App] TalkingHead speak started, button should be visible');
+        logger.log('TalkingHead speak started, button should be visible');
         
       } catch (speechError) {
-        console.error('[App] TTS synthesis or avatar speech failed:', speechError);
+        logger.error('TTS synthesis or avatar speech failed:', speechError);
         setIsTalkingHeadSpeaking(false); // Ensure speaking state is reset on error
         // Still show the text response even if speech fails
       }

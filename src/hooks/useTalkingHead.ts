@@ -176,6 +176,9 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     
     setSpeaking(true);
     
+    // Small delay to ensure state propagates before any callbacks
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     try {
       // Create audio object for TalkingHead
       const audioObj = {
@@ -185,11 +188,21 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         wdurations: timings?.map(t => t.end - t.start) || []
       };
       
-      // Simple promise-based approach
+      // Simple promise-based approach with callback deduplication
       await new Promise<void>((resolve) => {
+        let callbackFired = false; // Prevent multiple callback executions
+        
+        const cleanup = () => {
+          if (!callbackFired) {
+            callbackFired = true;
+            setSpeaking(false);
+            resolve();
+          }
+        };
+        
         const timeoutId = setTimeout(() => {
-          setSpeaking(false);
-          resolve();
+          (window as any).addDebugLog?.('[TH] timeout reached');
+          cleanup();
         }, (audioBuffer.duration * 1000) + 1000);
         
         if (typeof headRef.current?.speakAudio === 'function') {
@@ -199,15 +212,13 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
             console.log('[useTalkingHead] speakAudio callback - setting isSpeaking false');
             (window as any).addDebugLog?.('[TH] speakAudio callback - done');
             clearTimeout(timeoutId);
-            setSpeaking(false);
-            resolve();
+            cleanup();
           });
         } else {
           console.log('[useTalkingHead] ERROR: speakAudio method not available! Setting isSpeaking false immediately');
           (window as any).addDebugLog?.('[TH] ERROR: speakAudio NOT available!');
           clearTimeout(timeoutId);
-          setSpeaking(false);
-          resolve();
+          cleanup();
         }
       });
     } catch (e) {

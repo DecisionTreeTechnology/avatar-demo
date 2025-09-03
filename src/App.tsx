@@ -72,6 +72,7 @@ export const App: React.FC = () => {
   const [showIOSWarning, setShowIOSWarning] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(true); // Temporary debug flag
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showAnimationControls, setShowAnimationControls] = useState(false);
@@ -345,6 +346,21 @@ export const App: React.FC = () => {
                        personalitySystem.currentPersonality === 'casual' ? 'home' : 'park'}
             className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none"
           >
+            {/* Temporary Debug Overlay */}
+            {showDebug && (
+              <div className="absolute top-2 left-2 z-30 bg-black/80 text-white text-xs p-2 rounded max-w-xs">
+                <div className="font-mono space-y-1">
+                  <div>isTalkingHeadSpeaking: {isTalkingHeadSpeaking.toString()}</div>
+                  <div>talkingHead.isSpeaking: {talkingHead.isSpeaking.toString()}</div>
+                  <div>isCurrentlySpeaking: {isCurrentlySpeaking.toString()}</div>
+                  <div>isAsking: {isAsking.toString()}</div>
+                </div>
+                <button 
+                  className="mt-2 text-xs bg-white text-black px-2 py-1 rounded"
+                  onClick={() => setShowDebug(false)}
+                >Hide</button>
+              </div>
+            )}
             
             {!avatarReady && (
               <div className="absolute inset-0 flex items-center justify-center z-20 bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur-sm">

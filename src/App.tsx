@@ -21,6 +21,7 @@ export const App: React.FC = () => {
   // Local speaking state since we're using TalkingHead directly for audio
   const [isTalkingHeadSpeaking, setIsTalkingHeadSpeaking] = useState(false);
   const speakingStartTimeRef = useRef<number>(0);
+  const stopRequestedRef = useRef(false); // Track if stop was requested
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Combined speaking state - use either our manual state or TalkingHead's state
@@ -29,6 +30,9 @@ export const App: React.FC = () => {
   // Combined stop function that stops both TTS audio and TalkingHead animation
   const handleStopSpeaking = useCallback(() => {
     console.log('[App] Stopping both TTS and TalkingHead');
+    
+    // Set stop flag to prevent delays
+    stopRequestedRef.current = true;
     
     // Clear any pending timeout
     if (speakingTimeoutRef.current) {
@@ -48,8 +52,11 @@ export const App: React.FC = () => {
       console.warn('[App] Error stopping TalkingHead:', error);
     }
     
-    // Reset our local speaking state
+    // Reset our local speaking state immediately
     setIsTalkingHeadSpeaking(false);
+    
+    logCounter.current++;
+    setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] STOP - setting isTalkingHeadSpeaking FALSE immediately`].slice(-10));
 
     // Ensure microphone manager knows speaking has ended
     try {
@@ -259,6 +266,7 @@ export const App: React.FC = () => {
         logCounter.current++;
         setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Setting isTalkingHeadSpeaking TRUE`].slice(-10));
         speakingStartTimeRef.current = Date.now(); // Track when speaking started
+        stopRequestedRef.current = false; // Reset stop flag for new speech
         
         // Force synchronous state update with multiple setState calls
         setIsTalkingHeadSpeaking(true);
@@ -310,19 +318,25 @@ export const App: React.FC = () => {
           }
           console.log('[App] TalkingHead speak completed - setting isTalkingHeadSpeaking to FALSE');
           
-          // Apply minimum duration protection to App-level state too
-          const elapsed = Date.now() - speakingStartTimeRef.current;
-          const minDuration = 2000; // Keep App state true for at least 2 seconds
-          const remainingTime = Math.max(0, minDuration - elapsed);
-          
-          logCounter.current++;
-          setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] TalkingHead completed - delaying FALSE by ${remainingTime}ms`].slice(-10));
-          
-          setTimeout(() => {
+          // Only reset state if stop wasn't already requested
+          if (!stopRequestedRef.current) {
+            // Normal completion - wait for TTS audio to finish too
+            const elapsed = Date.now() - speakingStartTimeRef.current;
+            const expectedDuration = audio.duration * 1000; // Expected TTS duration
+            const remainingTime = Math.max(0, expectedDuration - elapsed + 500); // Extra 500ms buffer
+            
             logCounter.current++;
-            setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Setting isTalkingHeadSpeaking FALSE now`].slice(-10));
-            setIsTalkingHeadSpeaking(false);
-          }, remainingTime);
+            setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] TalkingHead completed - waiting ${remainingTime}ms for TTS`].slice(-10));
+            
+            setTimeout(() => {
+              logCounter.current++;
+              setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Setting isTalkingHeadSpeaking FALSE - normal completion`].slice(-10));
+              setIsTalkingHeadSpeaking(false);
+            }, remainingTime);
+          } else {
+            logCounter.current++;
+            setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] TalkingHead completed - stop was requested, skipping delay`].slice(-10));
+          }
 
           // Notify microphone manager that TTS has ended
           try {

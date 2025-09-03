@@ -250,11 +250,15 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
         {isTTSSpeaking && onStopSpeaking && (
           <button
             data-testid="stop-tts-button"
-            className="btn-base bg-red-600 hover:bg-red-500 text-white px-4 py-3 min-h-[48px] landscape:min-h-[52px]"
-            onClick={() => {
+            className="btn-base bg-red-600 hover:bg-red-500 text-white px-4 py-3 min-h-[48px] landscape:min-h-[52px] z-50 relative animate-pulse border-2 border-red-400"
+            onClick={(e) => {
+              console.log('[EnhancedChatBar] Stop button clicked!');
+              e.preventDefault();
+              e.stopPropagation();
               onStopSpeaking();
             }}
-            title="Stop speaking"
+            disabled={false}
+            title="Stop speaking - Click to interrupt"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

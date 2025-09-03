@@ -244,14 +244,20 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
 
   // iOS Safari warm-up method - must be called from user gesture
   const warmUpForIOS = useCallback(async () => {
+    (window as any).addDebugLog?.('[TH] warmUpForIOS called');
+    
     if (!headRef.current) {
+      (window as any).addDebugLog?.('[TH] no headRef - skip warmup');
       return;
     }
     
     const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
     if (!isMobile) {
+      (window as any).addDebugLog?.('[TH] not mobile - skip warmup');
       return;
     }
+    
+    (window as any).addDebugLog?.('[TH] mobile detected - warming up...');
     
     try {
       // Create a tiny silent audio buffer to initialize the audio system

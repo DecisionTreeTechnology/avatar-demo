@@ -148,7 +148,11 @@ export const App: React.FC = () => {
       await initAudioContext();
       
       // iOS Safari TalkingHead warm-up - must happen during user gesture
+      console.log('[App] Calling warmUpForIOS...');
+      setDebugLogs(prev => [...prev.slice(-4), '[App] Calling warmUpForIOS...'].slice(-5));
       await talkingHead.warmUpForIOS();
+      console.log('[App] warmUpForIOS completed');
+      setDebugLogs(prev => [...prev.slice(-4), '[App] warmUpForIOS completed'].slice(-5));
       // If currently speaking, stop ongoing TTS/animation before new request
       if (isCurrentlySpeaking) {
         handleStopSpeaking();

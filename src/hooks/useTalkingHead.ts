@@ -83,15 +83,12 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
       try {
         head = new TalkingHead(containerRef.current, {
           ttsEndpoint: ttsEndpoint, // placeholder, we won't call speakText()
-          // Enable English lipsync module so speakAudio can auto-generate visemes from words.
           lipsyncModules: ['en'],
           lipsyncLang: 'en',
-          // Mute TalkingHead's internal speech audio; we play audio via EnhancedTTS
-          mixerGainSpeech: 0,
-          // avatarMood will be set by personality system after initialization
-          cameraView: 'upper', // hoose one of "full", "mid", "upper", "head"
-          cameraDistance: 4.5, // Closer camera for better zoom
-          cameraY: 1.0 // Slightly higher camera position to focus on upper area
+          mixerGainSpeech: 0, // Mute TalkingHead's internal speech audio
+          cameraView: 'upper',
+          cameraDistance: 4.5,
+          cameraY: 1.0
         });
       } catch (e:any) {
         console.error('TalkingHead construct error', e);
@@ -172,140 +169,39 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
 
   const speak = useCallback(async (audioBuffer: AudioBuffer, timings?: SpeakWordTiming[]) => {
     if (!headRef.current) {
-      console.warn('No head instance available');
       return;
     }
     setSpeaking(true);
     
     try {
-      // Enhanced mobile audio compatibility
-      const isIOSChrome = /iPad|iPhone|iPod/i.test(navigator.userAgent) && /CriOS/i.test(navigator.userAgent);
-      const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        console.log('[useTalkingHead] Mobile device detected' + (isIOSChrome ? ' (iOS Chrome)' : '') + ', checking audio context...');
-        
-        // Ensure global audio context is available and active
-        const globalCtx = (window as any).globalAudioContext;
-        if (globalCtx && globalCtx.state === 'suspended') {
-          console.log('[useTalkingHead] Resuming suspended AudioContext...');
-          await globalCtx.resume();
-          
-          // iOS Chrome may need additional time for WebKit to activate
-          if (isIOSChrome) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
-        }
-      }
-      
-      // Create audio object for TalkingHead with enhanced timing
-      // For iPhone compatibility, ensure the AudioBuffer is properly accessible
-      let processedAudioBuffer = audioBuffer;
-      
-      // On iOS, sometimes the AudioBuffer needs to be reconstructed for proper access
-      if (isMobile) {
-        try {
-          // Get the audio context that created this buffer
-          const audioCtx = (window as any).globalAudioContext;
-          if (audioCtx && audioBuffer.sampleRate !== audioCtx.sampleRate) {
-            console.log('[useTalkingHead] AudioBuffer sample rate mismatch, reconstructing for iOS compatibility');
-            
-            // Create a new buffer with the correct sample rate
-            const newBuffer = audioCtx.createBuffer(
-              audioBuffer.numberOfChannels,
-              Math.floor(audioBuffer.length * (audioCtx.sampleRate / audioBuffer.sampleRate)),
-              audioCtx.sampleRate
-            );
-            
-            // Copy and resample the audio data
-            for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-              const oldData = audioBuffer.getChannelData(channel);
-              const newData = newBuffer.getChannelData(channel);
-              
-              // Simple linear interpolation resampling
-              const ratio = oldData.length / newData.length;
-              for (let i = 0; i < newData.length; i++) {
-                const oldIndex = i * ratio;
-                const index = Math.floor(oldIndex);
-                const frac = oldIndex - index;
-                
-                if (index + 1 < oldData.length) {
-                  newData[i] = oldData[index] * (1 - frac) + oldData[index + 1] * frac;
-                } else {
-                  newData[i] = oldData[index] || 0;
-                }
-              }
-            }
-            
-            processedAudioBuffer = newBuffer;
-            console.log('[useTalkingHead] AudioBuffer reconstructed for iOS compatibility');
-          }
-        } catch (resampleError) {
-          console.warn('[useTalkingHead] AudioBuffer resampling failed, using original:', resampleError);
-          processedAudioBuffer = audioBuffer;
-        }
-      }
-      
+      // Create simple audio object for TalkingHead - back to basics
       const audioObj = {
-        audio: processedAudioBuffer,
+        audio: audioBuffer,
         words: timings?.map(t => t.word) || [],
         wtimes: timings?.map(t => t.start) || [],
         wdurations: timings?.map(t => t.end - t.start) || []
       };
       
-      console.log('[useTalkingHead] Starting avatar speech with audio duration:', audioBuffer.duration);
-      
-      // Use promise-based approach to better track completion
-      await new Promise<void>((resolve, reject) => {
-        let isResolved = false;
-        const cleanup = () => {
-          if (!isResolved) {
-            isResolved = true;
-            setSpeaking(false);
-          }
-        };
-        
-        // Adjust timeout for mobile devices - iOS Chrome may need more time
-        const baseDuration = audioBuffer.duration * 1000;
-        const mobileBuffer = isMobile ? 2000 : 1000; // Extra buffer for mobile
-        const iosBuffer = isIOSChrome ? 1000 : 0; // Additional buffer for iOS Chrome
-        const maxDuration = Math.max(baseDuration + mobileBuffer + iosBuffer, 5000);
-        
-        console.log('[useTalkingHead] Setting timeout for', maxDuration, 'ms (mobile:', isMobile, ', iOS Chrome:', isIOSChrome, ')');
-        
+      // Simple promise-based approach
+      await new Promise<void>((resolve) => {
         const timeoutId = setTimeout(() => {
-          console.log('[useTalkingHead] speak timeout reached');
-          cleanup();
+          setSpeaking(false);
           resolve();
-        }, maxDuration);
+        }, (audioBuffer.duration * 1000) + 1000);
         
-        try {
-          // Check if speakAudio method exists and call it
-          if (typeof headRef.current?.speakAudio === 'function') {
-            console.log('[useTalkingHead] Calling speakAudio...');
-            headRef.current.speakAudio(audioObj, {}, () => {
-              console.log('[useTalkingHead] speakAudio callback fired');
-              clearTimeout(timeoutId);
-              cleanup();
-              resolve();
-            });
-          } else {
-            console.warn('speakAudio method not available');
+        if (typeof headRef.current?.speakAudio === 'function') {
+          headRef.current.speakAudio(audioObj, {}, () => {
             clearTimeout(timeoutId);
-            cleanup();
+            setSpeaking(false);
             resolve();
-          }
-        } catch (error) {
-          console.error('speakAudio error:', error);
+          });
+        } else {
           clearTimeout(timeoutId);
-          cleanup();
-          reject(error);
+          setSpeaking(false);
+          resolve();
         }
       });
-      
-      console.log('[useTalkingHead] speak completed successfully');
     } catch (e) {
-      console.error('speak error:', e);
       setSpeaking(false);
       throw e;
     }

@@ -220,11 +220,11 @@ export const App: React.FC = () => {
         // First synthesize the audio and get word timings
         const { audio, wordTimings } = await speakText(reply);
         
-        // Convert word timings to TalkingHead format (seconds)
+        // Convert word timings to TalkingHead format (milliseconds expected by library)
         const talkingHeadTimings = wordTimings.map((timing: { word: string; start: number; end: number }) => ({
           word: timing.word,
-          start: (timing.start || 0) / 1000,
-          end: (timing.end || 0) / 1000
+          start: timing.start || 0,
+          end: timing.end || 0
         }));
         
         console.log('[App] Starting avatar speech with lip sync, duration:', audio.duration);

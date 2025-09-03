@@ -51,7 +51,7 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
     if (isNonTTSBusy && speechRecognition.isListening) {
       console.log('[EnhancedChatBar] Non-TTS busy (LLM processing) - stopping microphone');
       speechRecognition.notifyTTSStarted(); // Use TTS notification for consistency
-    } else if (!disabled && !isTTSSpeaking && !speechRecognition.isListening && speechRecognition.userIntentToListen) {
+    } else if (!disabled && !isTTSSpeaking && speechRecognition.userIntentToListen) {
       console.log('[EnhancedChatBar] System ready - allowing microphone restart');
       speechRecognition.notifyTTSEnded();
     }

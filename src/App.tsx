@@ -76,9 +76,12 @@ export const App: React.FC = () => {
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   
   // Global debug logger for hooks to use
+  const logCounter = useRef(0);
   useEffect(() => {
     (window as any).addDebugLog = (message: string) => {
-      setDebugLogs(prev => [...prev.slice(-4), message].slice(-5));
+      logCounter.current++;
+      const timestampedMessage = `${logCounter.current}: ${message}`;
+      setDebugLogs(prev => [...prev.slice(-9), timestampedMessage].slice(-10)); // Show last 10 logs
     };
     return () => {
       delete (window as any).addDebugLog;
@@ -149,10 +152,12 @@ export const App: React.FC = () => {
       
       // iOS Safari TalkingHead warm-up - must happen during user gesture
       console.log('[App] Calling warmUpForIOS...');
-      setDebugLogs(prev => [...prev.slice(-4), '[App] Calling warmUpForIOS...'].slice(-5));
+      logCounter.current++;
+      setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Calling warmUpForIOS`].slice(-10));
       await talkingHead.warmUpForIOS();
       console.log('[App] warmUpForIOS completed');
-      setDebugLogs(prev => [...prev.slice(-4), '[App] warmUpForIOS completed'].slice(-5));
+      logCounter.current++;
+      setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] warmUpForIOS completed`].slice(-10));
       // If currently speaking, stop ongoing TTS/animation before new request
       if (isCurrentlySpeaking) {
         handleStopSpeaking();
@@ -251,7 +256,8 @@ export const App: React.FC = () => {
         
         // Set speaking state manually since we're bypassing playAudio
         console.log('[App] Setting isTalkingHeadSpeaking to TRUE');
-        setDebugLogs(prev => [...prev.slice(-4), '[App] Setting isTalkingHeadSpeaking to TRUE'].slice(-5));
+        logCounter.current++;
+        setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] Setting isTalkingHeadSpeaking TRUE`].slice(-10));
         setIsTalkingHeadSpeaking(true);
 
         // Notify microphone manager that TTS is starting (redundant-safe)
@@ -291,7 +297,8 @@ export const App: React.FC = () => {
             speakingTimeoutRef.current = null;
           }
           console.log('[App] TalkingHead speak completed - setting isTalkingHeadSpeaking to FALSE');
-          setDebugLogs(prev => [...prev.slice(-4), '[App] TalkingHead completed - setting FALSE'].slice(-5));
+          logCounter.current++;
+          setDebugLogs(prev => [...prev.slice(-9), `${logCounter.current}: [App] TalkingHead completed - setting FALSE`].slice(-10));
           setIsTalkingHeadSpeaking(false);
 
           // Notify microphone manager that TTS has ended

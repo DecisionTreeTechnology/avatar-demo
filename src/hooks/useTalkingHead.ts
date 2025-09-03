@@ -188,15 +188,25 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         wdurations: timings?.map(t => t.end - t.start) || []
       };
       
-      // Simple promise-based approach with callback deduplication
+      // Simple promise-based approach with callback deduplication and minimum duration
       await new Promise<void>((resolve) => {
         let callbackFired = false; // Prevent multiple callback executions
+        const startTime = Date.now();
+        const minSpeakingDuration = 1000; // Keep speaking state for at least 1 second
         
         const cleanup = () => {
           if (!callbackFired) {
             callbackFired = true;
-            setSpeaking(false);
-            resolve();
+            
+            // Ensure minimum speaking duration
+            const elapsed = Date.now() - startTime;
+            const remainingTime = Math.max(0, minSpeakingDuration - elapsed);
+            
+            setTimeout(() => {
+              (window as any).addDebugLog?.('[TH] setting isSpeaking FALSE after delay');
+              setSpeaking(false);
+              resolve();
+            }, remainingTime);
           }
         };
         

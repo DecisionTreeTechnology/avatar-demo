@@ -86,6 +86,8 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
           // Enable English lipsync module so speakAudio can auto-generate visemes from words.
           lipsyncModules: ['en'],
           lipsyncLang: 'en',
+          // Mute TalkingHead's internal speech audio; we play audio via EnhancedTTS
+          mixerGainSpeech: 0,
           // avatarMood will be set by personality system after initialization
           cameraView: 'upper', // hoose one of "full", "mid", "upper", "head"
           cameraDistance: 4.5, // Closer camera for better zoom

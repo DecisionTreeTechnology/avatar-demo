@@ -252,9 +252,8 @@ export const App: React.FC = () => {
         }, generousTimeout);
         
         // Begin playback via our TTS audio path for iOS reliability
-        // Play actual audio using our AudioContext (reliable unlock), and animate avatar with a silent buffer
+        // Play actual audio using our AudioContext (reliable unlock)
         try {
-          // Start audible playback (manages mic notifications internally too)
           void playAudio(audio, wordTimings, () => {
             console.log('[App] playAudio onEnd fired');
           });
@@ -262,19 +261,8 @@ export const App: React.FC = () => {
           console.warn('[App] playAudio failed (continuing with avatar only):', playErr);
         }
 
-        // Create a silent buffer matching the audio duration for animation-only playback
-        let silentBuffer: AudioBuffer | null = null;
-        try {
-          const animCtx = await AudioContextManager.getInstance().getContext();
-          const silentLength = Math.max(1, Math.round(audio.duration * animCtx.sampleRate));
-          silentBuffer = animCtx.createBuffer(1, silentLength, animCtx.sampleRate);
-        } catch (e) {
-          console.warn('[App] Failed to create silent buffer for animation:', e);
-        }
-
-        // Start TalkingHead speak with silent audio so only lips move
-        // This avoids relying on TalkingHead's internal audio on iOS
-        talkingHead.speak(silentBuffer || audio, talkingHeadTimings).then(() => {
+        // Drive avatar lipsync with the real audio buffer (TalkingHead's speech is muted)
+        talkingHead.speak(audio, talkingHeadTimings).then(() => {
           console.log('[App] TalkingHead speak completed');
           // Clear extended hold if still pending and release speaking state
           if (speakingTimeoutRef.current) {

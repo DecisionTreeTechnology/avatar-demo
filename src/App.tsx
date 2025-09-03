@@ -73,6 +73,17 @@ export const App: React.FC = () => {
   const [isAsking, setIsAsking] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(true); // Temporary debug flag
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  
+  // Global debug logger for hooks to use
+  useEffect(() => {
+    (window as any).addDebugLog = (message: string) => {
+      setDebugLogs(prev => [...prev.slice(-4), message].slice(-5));
+    };
+    return () => {
+      delete (window as any).addDebugLog;
+    };
+  }, []);
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showAnimationControls, setShowAnimationControls] = useState(false);
@@ -236,6 +247,7 @@ export const App: React.FC = () => {
         
         // Set speaking state manually since we're bypassing playAudio
         console.log('[App] Setting isTalkingHeadSpeaking to TRUE');
+        setDebugLogs(prev => [...prev.slice(-4), '[App] Setting isTalkingHeadSpeaking to TRUE'].slice(-5));
         setIsTalkingHeadSpeaking(true);
 
         // Notify microphone manager that TTS is starting (redundant-safe)
@@ -275,6 +287,7 @@ export const App: React.FC = () => {
             speakingTimeoutRef.current = null;
           }
           console.log('[App] TalkingHead speak completed - setting isTalkingHeadSpeaking to FALSE');
+          setDebugLogs(prev => [...prev.slice(-4), '[App] TalkingHead completed - setting FALSE'].slice(-5));
           setIsTalkingHeadSpeaking(false);
 
           // Notify microphone manager that TTS has ended
@@ -350,12 +363,18 @@ export const App: React.FC = () => {
           >
             {/* Temporary Debug Overlay */}
             {showDebug && (
-              <div className="absolute top-2 left-2 z-30 bg-black/80 text-white text-xs p-2 rounded max-w-xs">
+              <div className="absolute top-2 left-2 z-30 bg-black/80 text-white text-xs p-2 rounded max-w-sm">
                 <div className="font-mono space-y-1">
                   <div>isTalkingHeadSpeaking: {isTalkingHeadSpeaking.toString()}</div>
                   <div>talkingHead.isSpeaking: {talkingHead.isSpeaking.toString()}</div>
                   <div>isCurrentlySpeaking: {isCurrentlySpeaking.toString()}</div>
                   <div>isAsking: {isAsking.toString()}</div>
+                </div>
+                <div className="mt-2 text-xs border-t border-gray-500 pt-2">
+                  <div className="font-bold">Recent Logs:</div>
+                  {debugLogs.map((log, i) => (
+                    <div key={i} className="truncate">{log}</div>
+                  ))}
                 </div>
                 <button 
                   className="mt-2 text-xs bg-white text-black px-2 py-1 rounded"

@@ -174,6 +174,13 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
     setSpeaking(true);
     
     try {
+      // Debug timing data
+      console.log('[useTalkingHead] Debug - Audio duration:', audioBuffer.duration);
+      console.log('[useTalkingHead] Debug - Timings received:', timings);
+      console.log('[useTalkingHead] Debug - Words:', timings?.map(t => t.word));
+      console.log('[useTalkingHead] Debug - Start times:', timings?.map(t => t.start));
+      console.log('[useTalkingHead] Debug - End times:', timings?.map(t => t.end));
+      
       // Create simple audio object for TalkingHead - back to basics
       const audioObj = {
         audio: audioBuffer,
@@ -181,6 +188,8 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
         wtimes: timings?.map(t => t.start) || [],
         wdurations: timings?.map(t => t.end - t.start) || []
       };
+      
+      console.log('[useTalkingHead] Debug - Final audioObj:', audioObj);
       
       // Simple promise-based approach
       await new Promise<void>((resolve) => {

@@ -26,6 +26,7 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
   const [value, setValue] = useState('');
   const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const speechRecognition = useEnhancedSpeechRecognition({
     feedbackFilterThreshold: 3, // Slightly more aggressive filtering
@@ -41,7 +42,7 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
       console.log('[EnhancedChatBar] TTS ended - notifying speech recognition');
       speechRecognition.notifyTTSEnded();
     }
-  }, [isTTSSpeaking, speechRecognition]);
+  }, [isTTSSpeaking]);
 
   // Handle other busy states (LLM processing, etc.) - Secondary state management
   useEffect(() => {
@@ -57,13 +58,19 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
       // Clear TTS state first
       speechRecognition.notifyTTSEnded();
       
+      // Clear any existing restart timeout to prevent multiple restarts
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
+      
       // Then directly restart the microphone
-      setTimeout(() => {
+      restartTimeoutRef.current = setTimeout(() => {
         console.log('[EnhancedChatBar] Direct restart after TTS completion');
         speechRecognition.startListening();
+        restartTimeoutRef.current = null;
       }, 200);
     }
-  }, [disabled, isTTSSpeaking, speechRecognition]);
+  }, [disabled, isTTSSpeaking]);
 
   // Update input value when speech recognition provides transcript
   useEffect(() => {

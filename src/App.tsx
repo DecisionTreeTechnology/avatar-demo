@@ -135,6 +135,13 @@ export const App: React.FC = () => {
       setLastError(null);
       // Ensure AudioContext is initialized and unlocked before proceeding (important for iOS)
       await initAudioContext();
+      
+      // iOS Safari TalkingHead warm-up - must happen during user gesture
+      try {
+        await talkingHead.warmUpForIOS();
+      } catch (warmUpError) {
+        console.warn('[App] iOS TalkingHead warm-up failed:', warmUpError);
+      }
       // If currently speaking, stop ongoing TTS/animation before new request
       if (isCurrentlySpeaking) {
         handleStopSpeaking();

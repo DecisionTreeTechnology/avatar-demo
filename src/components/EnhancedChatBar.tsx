@@ -52,22 +52,16 @@ export const EnhancedChatBar: React.FC<EnhancedChatBarProps> = ({
       console.log('[EnhancedChatBar] Non-TTS busy (LLM processing) - stopping microphone');
       speechRecognition.notifyTTSStarted(); // Use TTS notification for consistency
     } else if (!disabled && !isTTSSpeaking && speechRecognition.userIntentToListen) {
-      console.log('[EnhancedChatBar] System ready - allowing microphone restart');
-      console.log('[EnhancedChatBar] Current speech state before restart:', {
-        isListening: speechRecognition.isListening,
-        canStartCapture: speechRecognition.canStartCapture,
-        isTTSSpeaking: speechRecognition.isTTSSpeaking,
-        userIntentToListen: speechRecognition.userIntentToListen
-      });
+      console.log('[EnhancedChatBar] System ready - restarting microphone directly');
+      
+      // Clear TTS state first
       speechRecognition.notifyTTSEnded();
       
-      // Add a small delay then try to restart if still needed
+      // Then directly restart the microphone
       setTimeout(() => {
-        if (speechRecognition.userIntentToListen && !speechRecognition.isListening && speechRecognition.canStartCapture) {
-          console.log('[EnhancedChatBar] Manual restart attempt after TTS ended');
-          speechRecognition.startListening();
-        }
-      }, 500);
+        console.log('[EnhancedChatBar] Direct restart after TTS completion');
+        speechRecognition.startListening();
+      }, 200);
     }
   }, [disabled, isTTSSpeaking, speechRecognition]);
 

@@ -85,6 +85,7 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
           ttsEndpoint: ttsEndpoint, // placeholder, we won't call speakText()
           // Enable English lipsync module so speakAudio can auto-generate visemes from words.
           lipsyncModules: ['en'],
+          lipsyncLang: 'en',
           // avatarMood will be set by personality system after initialization
           cameraView: 'upper', // hoose one of "full", "mid", "upper", "head"
           cameraDistance: 4.5, // Closer camera for better zoom

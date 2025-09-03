@@ -326,8 +326,41 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
 
   // Stop current speech
   const stopSpeaking = useCallback(() => {
+    console.log('[useTalkingHead] stopSpeaking called - stopping current speech and animation');
     (window as any).addDebugLog?.('[TH] stopSpeaking called');
     stopRequestedRef.current = true;
+    
+    // Try to stop the TalkingHead animation if possible
+    if (headRef.current) {
+      try {
+        // Check if the TalkingHead library has a stop method
+        if (typeof headRef.current.stopSpeaking === 'function') {
+          console.log('[useTalkingHead] Calling TalkingHead.stopSpeaking()');
+          headRef.current.stopSpeaking();
+        } else if (typeof headRef.current.stop === 'function') {
+          console.log('[useTalkingHead] Calling TalkingHead.stop()');
+          headRef.current.stop();
+        } else {
+          console.log('[useTalkingHead] No stop method found - using workaround');
+          // Workaround: call speakAudio with empty/silent audio to interrupt
+          const silentBuffer = new AudioBuffer({
+            numberOfChannels: 1,
+            length: 1,
+            sampleRate: 22050
+          });
+          const audioObj = {
+            audio: silentBuffer,
+            timings: []
+          };
+          headRef.current.speakAudio(audioObj, {}, () => {
+            console.log('[useTalkingHead] Silent audio completed - animation should stop');
+          });
+        }
+      } catch (error) {
+        console.warn('[useTalkingHead] Error stopping TalkingHead animation:', error);
+      }
+    }
+    
     setSpeaking(false);
   }, []);
 

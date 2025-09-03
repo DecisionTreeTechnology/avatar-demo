@@ -199,8 +199,55 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
       }
       
       // Create audio object for TalkingHead with enhanced timing
+      // For iPhone compatibility, ensure the AudioBuffer is properly accessible
+      let processedAudioBuffer = audioBuffer;
+      
+      // On iOS, sometimes the AudioBuffer needs to be reconstructed for proper access
+      if (isMobile) {
+        try {
+          // Get the audio context that created this buffer
+          const audioCtx = (window as any).globalAudioContext;
+          if (audioCtx && audioBuffer.sampleRate !== audioCtx.sampleRate) {
+            console.log('[useTalkingHead] AudioBuffer sample rate mismatch, reconstructing for iOS compatibility');
+            
+            // Create a new buffer with the correct sample rate
+            const newBuffer = audioCtx.createBuffer(
+              audioBuffer.numberOfChannels,
+              Math.floor(audioBuffer.length * (audioCtx.sampleRate / audioBuffer.sampleRate)),
+              audioCtx.sampleRate
+            );
+            
+            // Copy and resample the audio data
+            for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+              const oldData = audioBuffer.getChannelData(channel);
+              const newData = newBuffer.getChannelData(channel);
+              
+              // Simple linear interpolation resampling
+              const ratio = oldData.length / newData.length;
+              for (let i = 0; i < newData.length; i++) {
+                const oldIndex = i * ratio;
+                const index = Math.floor(oldIndex);
+                const frac = oldIndex - index;
+                
+                if (index + 1 < oldData.length) {
+                  newData[i] = oldData[index] * (1 - frac) + oldData[index + 1] * frac;
+                } else {
+                  newData[i] = oldData[index] || 0;
+                }
+              }
+            }
+            
+            processedAudioBuffer = newBuffer;
+            console.log('[useTalkingHead] AudioBuffer reconstructed for iOS compatibility');
+          }
+        } catch (resampleError) {
+          console.warn('[useTalkingHead] AudioBuffer resampling failed, using original:', resampleError);
+          processedAudioBuffer = audioBuffer;
+        }
+      }
+      
       const audioObj = {
-        audio: audioBuffer,
+        audio: processedAudioBuffer,
         words: timings?.map(t => t.word) || [],
         wtimes: timings?.map(t => t.start) || [],
         wdurations: timings?.map(t => t.end - t.start) || []

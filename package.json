@@ -16,7 +16,13 @@
     "test:unit": "vitest",
     "test:unit:ui": "vitest --ui",
     "test:unit:coverage": "vitest --coverage",
-    "test:all": "npm run test:unit && npm run test"
+    "test:all": "npm run test:unit && npm run test",
+    "test:bulletproof": "playwright test --config playwright.bulletproof.config.ts",
+    "test:bulletproof:headed": "playwright test --config playwright.bulletproof.config.ts --headed",
+    "test:bulletproof:report": "playwright show-report bulletproof-test-results",
+    "test:stress": "playwright test --config playwright.bulletproof.config.ts reliability-stress",
+    "test:security": "playwright test --config playwright.bulletproof.config.ts accessibility-security",
+    "test:journeys": "playwright test --config playwright.bulletproof.config.ts bulletproof-user-journeys"
   },
   "keywords": [],
   "author": "",

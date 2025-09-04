@@ -18,7 +18,8 @@
       "Bash(chmod:*)",
       "Bash(/Users/sergeigorlovetsky/D3Dev/avatar-demo/fix-tests.sh)",
       "Bash(kill:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

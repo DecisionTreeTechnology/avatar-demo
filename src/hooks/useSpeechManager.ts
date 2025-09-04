@@ -42,7 +42,7 @@ export const useSpeechManager = (): SpeechManagerState => {
     // Reset our local speaking state immediately
     setIsTalkingHeadSpeaking(false);
 
-    // NOTE: EnhancedChatBar handles microphone notifications based on isTTSSpeaking prop
+    // NOTE: This is a manual stop, EnhancedChatBar should handle microphone restart immediately
   }, [stopTTS]);
 
   const speakWithAvatar = useCallback(async (text: string, talkingHead: any) => {

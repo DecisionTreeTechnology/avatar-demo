@@ -25,6 +25,7 @@ interface UseEnhancedSpeechRecognitionReturn {
   // New methods for TTS integration
   notifyTTSStarted: () => void;
   notifyTTSEnded: () => void;
+  notifyTTSStoppedManually: () => void;
   temporarilyDisable: (durationMs?: number) => void;
 }
 
@@ -206,6 +207,13 @@ export function useEnhancedSpeechRecognition(
     managerRef.current.notifyTTSEnded();
   }, []);
 
+  const notifyTTSStoppedManually = useCallback(() => {
+    if (!managerRef.current) return;
+    
+    console.log('[useEnhancedSpeechRecognition] Notifying TTS stopped manually');
+    managerRef.current.notifyTTSStoppedManually();
+  }, []);
+
   const temporarilyDisable = useCallback((durationMs = 5000) => {
     if (!managerRef.current) return;
     
@@ -230,6 +238,7 @@ export function useEnhancedSpeechRecognition(
     // TTS integration methods
     notifyTTSStarted,
     notifyTTSEnded,
+    notifyTTSStoppedManually,
     temporarilyDisable
   };
 }

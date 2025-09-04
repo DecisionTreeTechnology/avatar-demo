@@ -95,16 +95,16 @@ export class MicrophoneStateManager {
   /**
    * Check if microphone capture should be allowed
    */
-  private canStartCapture(): boolean {
+  private canStartCapture(bypassIOSDelay = false): boolean {
     if (this.isDestroyed) return false;
     if (this.state.isTemporarilyDisabled) return false;
     if (this.audioState.isTTSSpeaking) return false;
     if (this.audioState.isAvatarSpeaking) return false;
     if (this.audioState.isAudioPlaying) return false;
     
-    // Additional safety check for iOS
+    // Additional safety check for iOS (can be bypassed for manual stops)
     const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
-    if (isIOS && this.audioState.ttsEndTime) {
+    if (isIOS && this.audioState.ttsEndTime && !bypassIOSDelay) {
       const timeSinceLastTTS = Date.now() - this.audioState.ttsEndTime;
       if (timeSinceLastTTS < 1000) {
         this.emitEvent('ttsBlocked', { 
@@ -144,6 +144,37 @@ export class MicrophoneStateManager {
     
     this.emitEvent('stateChanged', { 
       reason: 'TTS_STARTED',
+      state: this.getPublicState() 
+    });
+  }
+
+  /**
+   * Notify when TTS/Avatar speaking ends manually (user stopped)
+   */
+  public notifyTTSStoppedManually(): void {
+    console.log('[MicrophoneManager] TTS stopped manually by user');
+    
+    // Prevent rapid successive calls
+    if (!this.audioState.isTTSSpeaking) {
+      console.log('[MicrophoneManager] TTS already ended, skipping duplicate notification');
+      return;
+    }
+    
+    this.audioState.isTTSSpeaking = false;
+    this.audioState.isAvatarSpeaking = false;
+    this.audioState.isAudioPlaying = false;
+    this.audioState.ttsEndTime = Date.now();
+
+    // For manual stops, immediately allow restart without iOS delay
+    if (this.options.autoRestartAfterTTS || this.state.userIntentToListen) {
+      console.log('[MicrophoneManager] Manual stop - immediately restarting microphone (bypassing iOS delay)');
+      this.attemptRestart('TTS_MANUALLY_STOPPED', true); // bypass iOS delay
+    } else {
+      console.log('[MicrophoneManager] Manual stop - no restart needed');
+    }
+    
+    this.emitEvent('stateChanged', { 
+      reason: 'TTS_MANUALLY_STOPPED',
       state: this.getPublicState() 
     });
   }
@@ -247,8 +278,8 @@ export class MicrophoneStateManager {
   /**
    * Attempt to start recognition
    */
-  private async attemptStart(reason: string): Promise<boolean> {
-    if (!this.canStartCapture()) {
+  private async attemptStart(reason: string, bypassIOSDelay = false): Promise<boolean> {
+    if (!this.canStartCapture(bypassIOSDelay)) {
       console.log('[MicrophoneManager] Cannot start capture:', {
         canStart: this.canStartCapture(),
         isDestroyed: this.isDestroyed,
@@ -414,9 +445,9 @@ export class MicrophoneStateManager {
   /**
    * Attempt to restart recognition
    */
-  private attemptRestart(reason: string): void {
-    console.log('[MicrophoneManager] Attempting restart for reason:', reason);
-    this.attemptStart(reason);
+  private attemptRestart(reason: string, bypassIOSDelay = false): void {
+    console.log('[MicrophoneManager] Attempting restart for reason:', reason, 'bypassIOSDelay:', bypassIOSDelay);
+    this.attemptStart(reason, bypassIOSDelay);
   }
 
   /**

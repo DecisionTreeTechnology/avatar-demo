@@ -294,10 +294,17 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
             data-testid="stop-tts-button"
             className="btn-base bg-red-600 hover:bg-red-500 text-white px-4 py-3 min-h-[48px] landscape:min-h-[52px] z-50 relative animate-pulse border-2 border-red-400"
             onClick={(e) => {
-              console.log('[EnhancedChatBar] Stop button clicked!');
+              console.log('[EnhancedChatBar] Stop button clicked - manual TTS stop!');
               e.preventDefault();
               e.stopPropagation();
+              
+              // Call the stop function first
               onStopSpeaking();
+              
+              // Then immediately notify microphone manager this was a manual stop
+              // This bypasses iOS delays and re-enables microphone immediately
+              console.log('[EnhancedChatBar] Notifying manual TTS stop for immediate microphone restart');
+              speechRecognition.notifyTTSStoppedManually();
             }}
             disabled={false}
             title="Stop speaking - Click to interrupt"

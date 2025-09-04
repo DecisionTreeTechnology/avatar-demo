@@ -106,7 +106,8 @@ export class MicrophoneStateManager {
     const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
     if (isIOS && this.audioState.ttsEndTime && !bypassIOSDelay) {
       const timeSinceLastTTS = Date.now() - this.audioState.ttsEndTime;
-      if (timeSinceLastTTS < 1000) {
+      // Reduced delay from 1000ms to 300ms for better iOS UX
+      if (timeSinceLastTTS < 300) {
         this.emitEvent('ttsBlocked', { 
           reason: 'iOS safety delay', 
           timeSinceLastTTS 
@@ -200,10 +201,19 @@ export class MicrophoneStateManager {
     this.audioState.ttsEndTime = Date.now();
 
     // Add a safety delay before allowing restart to prevent race conditions
+    // Use shorter delay on iOS for better responsiveness
+    const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+    const restartDelay = isIOS ? 100 : this.options.debounceDelay; // Much faster on iOS
+    
     setTimeout(() => {
       // Auto-restart if configured OR if user had intent to listen
-      if (this.options.autoRestartAfterTTS || this.state.userIntentToListen) {
-        console.log('[MicrophoneManager] Auto-restarting microphone after TTS completion');
+      // On iOS, always restart for better UX (users expect immediate responsiveness)
+      const shouldRestart = this.options.autoRestartAfterTTS || 
+                            this.state.userIntentToListen || 
+                            isIOS; // Always restart on iOS
+      
+      if (shouldRestart) {
+        console.log('[MicrophoneManager] Auto-restarting microphone after TTS completion (iOS delay:', restartDelay + 'ms, isIOS:', isIOS + ')');
         this.attemptRestart('TTS_ENDED');
       } else {
         console.log('[MicrophoneManager] No auto-restart after TTS (disabled or no user intent)');
@@ -213,7 +223,7 @@ export class MicrophoneStateManager {
         reason: 'TTS_ENDED',
         state: this.getPublicState() 
       });
-    }, this.options.debounceDelay);
+    }, restartDelay);
   }
 
   /**

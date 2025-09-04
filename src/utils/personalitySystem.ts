@@ -10,6 +10,7 @@ export interface PersonalityTraits {
   defaultEmotion: EmotionType;
   emotionIntensity: AnimationIntensity;
   animationStyle: 'subtle' | 'expressive' | 'dynamic';
+  avatarUrl: string;
   voiceCharacteristics: {
     pace: 'slow' | 'normal' | 'fast';
     warmth: 'formal' | 'warm' | 'very_warm';
@@ -41,6 +42,7 @@ const personalityDefinitions: Record<PersonalityType, PersonalityTraits> = {
     defaultEmotion: 'happy',
     emotionIntensity: 'normal',
     animationStyle: 'expressive',
+    avatarUrl: '/ProfessionalCompanionAvatar.glb', // TODO: Fix FertilityCompanionAvatar.glb animation issues
     voiceCharacteristics: {
       pace: 'normal',
       warmth: 'very_warm',
@@ -59,6 +61,7 @@ const personalityDefinitions: Record<PersonalityType, PersonalityTraits> = {
     defaultEmotion: 'neutral',
     emotionIntensity: 'subtle',
     animationStyle: 'subtle',
+    avatarUrl: '/ProfessionalCompanionAvatar.glb',
     voiceCharacteristics: {
       pace: 'normal',
       warmth: 'formal',
@@ -77,6 +80,7 @@ const personalityDefinitions: Record<PersonalityType, PersonalityTraits> = {
     defaultEmotion: 'happy',
     emotionIntensity: 'normal',
     animationStyle: 'dynamic',
+    avatarUrl: '/ProfessionalCompanionAvatar.glb',
     voiceCharacteristics: {
       pace: 'normal',
       warmth: 'warm',
@@ -95,6 +99,7 @@ const personalityDefinitions: Record<PersonalityType, PersonalityTraits> = {
     defaultEmotion: 'excited',
     emotionIntensity: 'normal',
     animationStyle: 'expressive',
+    avatarUrl: '/ProfessionalCompanionAvatar.glb',
     voiceCharacteristics: {
       pace: 'fast',
       warmth: 'very_warm',
@@ -258,5 +263,10 @@ export class PersonalityManager {
 
   public getPersonalityDescription(personality: PersonalityType): string {
     return personalityDefinitions[personality].description;
+  }
+
+  public getAvatarUrl(personality?: PersonalityType): string {
+    const targetPersonality = personality || this.currentPersonality;
+    return personalityDefinitions[targetPersonality].avatarUrl;
   }
 }

@@ -40,10 +40,8 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
   const [error, setError] = useState<string | null>(null);
   const stopRequestedRef = useRef(false); // Flag to stop current speech
   
-  console.log('[useTalkingHead] Hook called with avatarUrl:', avatarUrl);
 
   useEffect(() => {
-    console.log('[useTalkingHead] useEffect triggered');
     let disposed = false;
     let handleResize: (() => void) | null = null;
     const init = async () => {
@@ -100,8 +98,19 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
       }
       headRef.current = head;
       
-      // Initialize animation manager
-      animationManagerRef.current = new AvatarAnimationManager(head);
+      // Add error event listeners to catch runtime issues
+      head.addEventListener?.('error', (event: any) => {
+        console.error('[useTalkingHead] Runtime error event:', event);
+        setError('Avatar runtime error: ' + (event.message || 'Unknown error'));
+      });
+      
+      // Initialize animation manager with error handling
+      try {
+        animationManagerRef.current = new AvatarAnimationManager(head);
+      } catch (animationError) {
+        console.warn('[useTalkingHead] Animation manager initialization failed:', animationError);
+        // Continue without animation manager - avatar will still work for display
+      }
       
       // TalkingHead handles canvas creation internally when container is provided
       setTimeout(() => {

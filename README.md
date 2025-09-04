@@ -86,7 +86,8 @@ avatar-demo/
 │   ├── types/            # TypeScript definitions
 │   └── styles/           # Global styles
 ├── public/
-│   ├── avatar.glb        # 3D avatar model
+│   ├── FertilityCompanionAvatar.glb        # 3D avatar model for Fertility Companion
+│   ├── ProfessionalCompanionAvatar.glb     # 3D avatar model for other personalities
 │   ├── assets/           # Audio and animation assets
 │   └── images/           # Scene background images
 ├── tests/                # Playwright test suites

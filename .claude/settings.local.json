@@ -19,7 +19,9 @@
       "Bash(/Users/sergeigorlovetsky/D3Dev/avatar-demo/fix-tests.sh)",
       "Bash(kill:*)",
       "Bash(open:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(echo:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

@@ -115,12 +115,15 @@ export const useSpeechManager = (): SpeechManagerState => {
         
         // Only reset state if stop wasn't already requested
         if (!stopRequestedRef.current) {
-          // For iOS reliability, set speaking to false immediately when TalkingHead completes
+          // For iOS reliability, use shorter delay when TalkingHead completes
           // The TTS audio and animation should be reasonably synchronized
           const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
           if (isIOS) {
-            console.log('[SpeechManager] iOS detected - setting speaking state to FALSE immediately');
-            setIsTalkingHeadSpeaking(false);
+            console.log('[SpeechManager] iOS detected - using short delay to ensure microphone restart');
+            // Use a very short delay to allow UI updates but ensure microphone manager gets notified
+            setTimeout(() => {
+              setIsTalkingHeadSpeaking(false);
+            }, 100); // Just 100ms delay for iOS
           } else {
             // Non-iOS: use original timing logic
             const elapsed = Date.now() - speakingStartTimeRef.current;

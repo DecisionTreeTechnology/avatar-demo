@@ -11,7 +11,14 @@
       "Bash(git rm:*)",
       "Bash(git push:*)",
       "Bash(npm uninstall:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(npm test:*)",
+      "Bash(chmod:*)",
+      "Bash(/Users/sergeigorlovetsky/D3Dev/avatar-demo/fix-tests.sh)",
+      "Bash(kill:*)",
+      "Bash(open:*)"
     ],
     "deny": [],
     "ask": []

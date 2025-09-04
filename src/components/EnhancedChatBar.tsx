@@ -71,26 +71,18 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
       console.log('[EnhancedChatBar] TTS ended - checking if microphone should restart');
       speechRecognition.notifyTTSEnded();
       
-      // Only restart if there was user intent or quick action flag
-      if (speechRecognition.userIntentToListen || shouldEnableAfterTTSRef.current) {
-        console.log('[EnhancedChatBar] Restarting microphone after TTS completion', {
-          userIntentToListen: speechRecognition.userIntentToListen,
-          shouldEnableAfterTTS: shouldEnableAfterTTSRef.current
-        });
-        
-        // Clear any existing restart timeout
-        if (restartTimeoutRef.current) {
-          clearTimeout(restartTimeoutRef.current);
-        }
-        
-        // Restart microphone after a delay
-        restartTimeoutRef.current = setTimeout(() => {
-          console.log('[EnhancedChatBar] Executing delayed microphone restart');
-          speechRecognition.startListening();
-          shouldEnableAfterTTSRef.current = false; // Reset flag
-          restartTimeoutRef.current = null;
-        }, 500);
+      // The microphone manager will handle auto-restart based on its configuration
+      // We just need to clear any pending restart timeouts and reset our flag
+      console.log('[EnhancedChatBar] TTS ended, microphone manager will handle restart');
+      
+      // Clear any existing restart timeout since manager handles this now
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
       }
+      
+      // Reset the quick action flag since TTS is done
+      shouldEnableAfterTTSRef.current = false;
     }
   }, [isTTSSpeaking]);
 

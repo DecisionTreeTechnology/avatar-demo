@@ -84,7 +84,7 @@ export class MicrophoneStateManager {
       minSilenceDuration: 500,
       maxRetryAttempts: 3,
       feedbackFilterThreshold: 2,
-      autoRestartAfterTTS: false, // Default to false for safety
+      autoRestartAfterTTS: true, // Enable by default for better UX
       debounceDelay: 300,
       ...options
     };
@@ -152,7 +152,10 @@ export class MicrophoneStateManager {
    * Notify when TTS/Avatar speaking ends
    */
   public notifyTTSEnded(): void {
-    console.log('[MicrophoneManager] TTS ended');
+    console.log('[MicrophoneManager] TTS ended', {
+      autoRestartAfterTTS: this.options.autoRestartAfterTTS,
+      userIntentToListen: this.state.userIntentToListen
+    });
     
     // Prevent rapid successive calls
     if (!this.audioState.isTTSSpeaking) {
@@ -167,8 +170,12 @@ export class MicrophoneStateManager {
 
     // Add a safety delay before allowing restart to prevent race conditions
     setTimeout(() => {
-      if (this.options.autoRestartAfterTTS && this.state.userIntentToListen) {
+      // Auto-restart if configured OR if user had intent to listen
+      if (this.options.autoRestartAfterTTS || this.state.userIntentToListen) {
+        console.log('[MicrophoneManager] Auto-restarting microphone after TTS completion');
         this.attemptRestart('TTS_ENDED');
+      } else {
+        console.log('[MicrophoneManager] No auto-restart after TTS (disabled or no user intent)');
       }
       
       this.emitEvent('stateChanged', { 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useEnhancedSpeechRecognition } from '../hooks/useEnhancedSpeechRecognition';
 
 interface EnhancedChatBarProps {
@@ -61,7 +61,6 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
         canStartCapture: speechRecognition.canStartCapture
       });
       speechRecognition.notifyTTSStarted();
-      
       // Clear any pending restart when TTS starts
       if (restartTimeoutRef.current) {
         clearTimeout(restartTimeoutRef.current);
@@ -71,18 +70,26 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
       console.log('[EnhancedChatBar] TTS ended - checking if microphone should restart');
       speechRecognition.notifyTTSEnded();
       
-      // The microphone manager will handle auto-restart based on its configuration
-      // We just need to clear any pending restart timeouts and reset our flag
-      console.log('[EnhancedChatBar] TTS ended, microphone manager will handle restart');
-      
-      // Clear any existing restart timeout since manager handles this now
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-        restartTimeoutRef.current = null;
+      // Only restart if there was user intent or quick action flag
+      if (speechRecognition.userIntentToListen || shouldEnableAfterTTSRef.current) {
+        console.log('[EnhancedChatBar] Restarting microphone after TTS completion', {
+          userIntentToListen: speechRecognition.userIntentToListen,
+          shouldEnableAfterTTS: shouldEnableAfterTTSRef.current
+        });
+        
+        // Clear any existing restart timeout
+        if (restartTimeoutRef.current) {
+          clearTimeout(restartTimeoutRef.current);
+        }
+        
+        // Restart microphone after a delay
+        restartTimeoutRef.current = setTimeout(() => {
+          console.log('[EnhancedChatBar] Executing delayed microphone restart');
+          speechRecognition.startListening();
+          shouldEnableAfterTTSRef.current = false; // Reset flag
+          restartTimeoutRef.current = null;
+        }, 500);
       }
-      
-      // Reset the quick action flag since TTS is done
-      shouldEnableAfterTTSRef.current = false;
     }
   }, [isTTSSpeaking]);
 
@@ -294,17 +301,10 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
             data-testid="stop-tts-button"
             className="btn-base bg-red-600 hover:bg-red-500 text-white px-4 py-3 min-h-[48px] landscape:min-h-[52px] z-50 relative animate-pulse border-2 border-red-400"
             onClick={(e) => {
-              console.log('[EnhancedChatBar] Stop button clicked - manual TTS stop!');
+              console.log('[EnhancedChatBar] Stop button clicked!');
               e.preventDefault();
               e.stopPropagation();
-              
-              // Call the stop function first
               onStopSpeaking();
-              
-              // Then immediately notify microphone manager this was a manual stop
-              // This bypasses iOS delays and re-enables microphone immediately
-              console.log('[EnhancedChatBar] Notifying manual TTS stop for immediate microphone restart');
-              speechRecognition.notifyTTSStoppedManually();
             }}
             disabled={false}
             title="Stop speaking - Click to interrupt"

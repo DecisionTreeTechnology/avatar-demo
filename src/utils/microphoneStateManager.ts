@@ -84,7 +84,7 @@ export class MicrophoneStateManager {
       minSilenceDuration: 500,
       maxRetryAttempts: 3,
       feedbackFilterThreshold: 2,
-      autoRestartAfterTTS: true, // Enable by default for better UX
+      autoRestartAfterTTS: false, // Default to false for safety
       debounceDelay: 300,
       ...options
     };
@@ -206,17 +206,8 @@ export class MicrophoneStateManager {
     const restartDelay = isIOS ? 100 : this.options.debounceDelay; // Much faster on iOS
     
     setTimeout(() => {
-      // Auto-restart if configured OR if user had intent to listen
-      // On iOS, always restart for better UX (users expect immediate responsiveness)
-      const shouldRestart = this.options.autoRestartAfterTTS || 
-                            this.state.userIntentToListen || 
-                            isIOS; // Always restart on iOS
-      
-      if (shouldRestart) {
-        console.log('[MicrophoneManager] Auto-restarting microphone after TTS completion (iOS delay:', restartDelay + 'ms, isIOS:', isIOS + ')');
+      if (this.options.autoRestartAfterTTS && this.state.userIntentToListen) {
         this.attemptRestart('TTS_ENDED');
-      } else {
-        console.log('[MicrophoneManager] No auto-restart after TTS (disabled or no user intent)');
       }
       
       this.emitEvent('stateChanged', { 

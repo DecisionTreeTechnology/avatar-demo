@@ -102,7 +102,7 @@ export const useConversationManager = ({ talkingHead, personalitySystem: sharedP
       }
       
       // Update LLM history
-      const newHistory = [...msgs, { role: 'assistant', content: reply }];
+      const newHistory = [...msgs, { role: 'assistant' as const, content: reply }];
       conversationState.updateHistory(newHistory);
       onConversationUpdate(newHistory);
       

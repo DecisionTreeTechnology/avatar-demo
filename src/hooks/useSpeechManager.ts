@@ -115,26 +115,18 @@ export const useSpeechManager = (): SpeechManagerState => {
         
         // Only reset state if stop wasn't already requested
         if (!stopRequestedRef.current) {
-          // For iOS, set speaking state immediately when TalkingHead completes
-          // This ensures microphone re-enablement happens quickly
-          const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
-          if (isIOS) {
-            console.log('[SpeechManager] iOS detected - setting speaking state to FALSE immediately for microphone restart');
+          // Normal completion - wait for TTS audio to finish too
+          const elapsed = Date.now() - speakingStartTimeRef.current;
+          const expectedDuration = audio.duration * 1000; // Expected TTS duration
+          const remainingTime = Math.max(0, expectedDuration - elapsed + 500); // Extra 500ms buffer
+          
+          setTimeout(() => {
             setIsTalkingHeadSpeaking(false);
-          } else {
-            // Non-iOS: Normal completion - wait for TTS audio to finish too
-            const elapsed = Date.now() - speakingStartTimeRef.current;
-            const expectedDuration = audio.duration * 1000; // Expected TTS duration
-            const remainingTime = Math.max(0, expectedDuration - elapsed + 500); // Extra 500ms buffer
-            
-            setTimeout(() => {
-              setIsTalkingHeadSpeaking(false);
-            }, remainingTime);
-          }
+          }, remainingTime);
         }
 
         // NOTE: EnhancedChatBar handles microphone notifications
-      }).catch((speakError: unknown) => {
+      }).catch((speakError) => {
         logger.warn('TalkingHead speak error (continuing):', speakError);
         if (speakingTimeoutRef.current) {
           clearTimeout(speakingTimeoutRef.current);

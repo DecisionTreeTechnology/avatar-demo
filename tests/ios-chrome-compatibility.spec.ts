@@ -26,7 +26,7 @@ test.describe('Avatar Demo - iOS Chrome Compatibility', () => {
       // Interact with the app to trigger audio context initialization
       const chatInput = page.locator('input[type="text"]');
       await chatInput.fill('Test iOS Chrome warning');
-      await page.locator('button:has-text("Ask")').click();
+      await page.locator('[data-testid="ask-button"]').click();
       
       // Wait for potential warning to appear
       await page.waitForTimeout(2000);
@@ -177,7 +177,7 @@ test.describe('Avatar Demo - iOS Chrome Compatibility', () => {
     test('should not show iOS Chrome warning in desktop mode', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
       await chatInput.fill('Test desktop mode');
-      await page.locator('button:has-text("Ask")').click();
+      await page.locator('[data-testid="ask-button"]').click();
       
       // Wait for potential warning
       await page.waitForTimeout(2000);
@@ -188,7 +188,7 @@ test.describe('Avatar Demo - iOS Chrome Compatibility', () => {
     });
 
     test('should handle desktop mode audio better', async ({ page }) => {
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       await askButton.click();
       
       // Desktop mode should have better audio context handling
@@ -230,7 +230,7 @@ test.describe('Avatar Demo - iOS Chrome Compatibility', () => {
     test('should not show iOS Chrome specific warnings in Safari', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
       await chatInput.fill('Test Safari behavior');
-      await page.locator('button:has-text("Ask")').click();
+      await page.locator('[data-testid="ask-button"]').click();
       
       await page.waitForTimeout(2000);
       

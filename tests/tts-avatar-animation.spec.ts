@@ -199,7 +199,7 @@ test.describe('Avatar Demo - TTS and Avatar Animation', () => {
   });
 
   test('should show avatar loading state initially', async ({ page }) => {
-    const loadingText = page.locator('text=Loading avatar...');
+    const loadingText = page.locator('text=Your caring assistant is preparing');
     await expect(loadingText).toBeVisible();
     
     // Check container ref status
@@ -228,28 +228,28 @@ test.describe('Avatar Demo - TTS and Avatar Animation', () => {
     
     // Either show error or continue with loading (graceful degradation)
     const hasError = await errorMessage.isVisible();
-    const hasLoading = await page.locator('text=Loading avatar...').isVisible();
+    const hasLoading = await page.locator('text=Your caring assistant is preparing').isVisible();
     
     expect(hasError || hasLoading).toBe(true);
   });
 
   test('should process TTS request when user sends message', async ({ page }) => {
     const chatInput = page.locator('input[type="text"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]');
     
     // Send a message
     await chatInput.fill('Hello avatar');
     await askButton.click();
     
     // Should show thinking state
-    await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+    await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
     
     // Wait for TTS processing
     await page.waitForTimeout(3000);
     
     // Should eventually show speaking state or return to normal
-    const speakingButton = page.locator('button:has-text("Speaking...")');
-    const normalButton = page.locator('button:has-text("Ask")');
+    const speakingButton = page.locator('[data-testid="ask-button"]:has-text("Speaking...")');
+    const normalButton = page.locator('[data-testid="ask-button"]');
     
     // Either speaking or returned to normal state
     const isSpeaking = await speakingButton.isVisible();
@@ -296,7 +296,7 @@ test.describe('Avatar Demo - TTS and Avatar Animation', () => {
     });
     
     const chatInput = page.locator('input[type="text"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]');
     
     // Send a message to trigger speech
     await chatInput.fill('Make the avatar speak');
@@ -326,7 +326,7 @@ test.describe('Avatar Demo - TTS and Avatar Animation', () => {
 
   test('should handle multiple speech requests properly', async ({ page }) => {
     const chatInput = page.locator('input[type="text"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]');
     
     // Send first message
     await chatInput.fill('First message');
@@ -348,12 +348,12 @@ test.describe('Avatar Demo - TTS and Avatar Animation', () => {
     await chatInput.fill('Second message');
     await askButton.click();
     
-    await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+    await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
   });
 
   test('should show response text after avatar speaks', async ({ page }) => {
     const chatInput = page.locator('input[type="text"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]');
     
     await chatInput.fill('Tell me something');
     await askButton.click();

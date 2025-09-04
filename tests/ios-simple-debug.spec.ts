@@ -18,7 +18,7 @@ test.describe('iOS LLM Simple Debug', () => {
     const input = page.locator('input[placeholder*="Press on mic or type"]');
     await input.fill('Hello');
     
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]');
     
     // Check initial state
     const initiallyEnabled = await askButton.isEnabled();

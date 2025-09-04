@@ -41,7 +41,7 @@ test.describe('Avatar Demo - Mobile Responsive Design', () => {
       }
       
       // Check Ask button is touch-friendly
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       const buttonBox = await askButton.boundingBox();
       
       expect(buttonBox).toBeTruthy();
@@ -114,7 +114,7 @@ test.describe('Avatar Demo - Mobile Responsive Design', () => {
 
     test('should maintain usable chat interface in landscape', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       await expect(chatInput).toBeVisible();
       await expect(askButton).toBeVisible();
@@ -217,7 +217,7 @@ test.describe('Avatar Demo - Mobile Responsive Design', () => {
         
         // Basic functionality should work on all devices
         const chatInput = page.locator('input[type="text"]');
-        const askButton = page.locator('button:has-text("Ask")');
+        const askButton = page.locator('[data-testid="ask-button"]');
         
         await expect(chatInput).toBeVisible();
         await expect(askButton).toBeVisible();
@@ -244,7 +244,7 @@ test.describe('Avatar Demo - Mobile Responsive Design', () => {
 
     test('should handle touch events properly', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       // Test touch interaction
       await chatInput.tap();
@@ -254,7 +254,7 @@ test.describe('Avatar Demo - Mobile Responsive Design', () => {
       await askButton.tap();
       
       // Should respond to touch
-      await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+      await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
     });
 
     test('should prevent zoom on double tap', async ({ page }) => {
@@ -270,7 +270,7 @@ test.describe('Avatar Demo - Mobile Responsive Design', () => {
     });
 
     test('should have touch-friendly button sizes', async ({ page }) => {
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       const buttonBox = await askButton.boundingBox();
       
       expect(buttonBox).toBeTruthy();

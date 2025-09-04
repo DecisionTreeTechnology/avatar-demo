@@ -50,7 +50,7 @@ test.describe('iOS Speech Debug Tests', () => {
       const input = page.locator('input[placeholder*="Press on mic or type"]');
       await input.fill('Hello, can you hear me?');
       
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       await askButton.click();
       
       // Wait for processing to start
@@ -172,7 +172,7 @@ test.describe('iOS Speech Debug Tests', () => {
     
     // Wait for Ask button to be re-enabled (indicating completion)
     await test.step('Wait for process completion', async () => {
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       await expect(askButton).toBeEnabled({ timeout: 30000 });
     });
     

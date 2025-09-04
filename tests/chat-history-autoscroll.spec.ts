@@ -92,7 +92,7 @@ test.describe('Chat History Auto-Scroll Tests', () => {
     await page.waitForTimeout(500);
     
     // Look for typing indicator (should appear during LLM processing)
-    const typingIndicator = chatHistory.locator('text=Thinking...');
+    const typingIndicator = chatHistory.locator('text=Thinking...').or(chatHistory.locator('text=Speaking...'));
     
     // The typing indicator might be visible briefly
     console.log('✅ Chat interaction processed successfully');

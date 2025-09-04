@@ -13,13 +13,13 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
       await page.context().setOffline(true);
       
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       await chatInput.fill('Test offline message');
       await askButton.click();
       
       // Should show thinking state but then handle error
-      await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+      await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
       
       // Wait for error handling
       await page.waitForTimeout(5000);
@@ -42,20 +42,20 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
       });
       
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       await chatInput.fill('Slow network test');
       await askButton.click();
       
       // Should remain in thinking state during slow request
-      await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+      await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
       
       // Should eventually respond or timeout gracefully
       await page.waitForTimeout(10000);
       
       // Should either complete or handle timeout
       const isCompleted = await askButton.isVisible();
-      const isStillThinking = await page.locator('button:has-text("Thinking...")').isVisible();
+      const isStillThinking = await page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")')).isVisible();
       
       expect(isCompleted || isStillThinking).toBe(true);
     });
@@ -65,7 +65,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
     
     test('should handle very long input text', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       // Create very long text
       const longText = 'This is a very long message. '.repeat(100); // ~3000 characters
@@ -74,7 +74,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
       await askButton.click();
       
       // Should handle long input gracefully
-      await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+      await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
       
       // Wait for processing
       await page.waitForTimeout(5000);
@@ -86,7 +86,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
 
     test('should handle special characters and emojis', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       const specialText = 'Hello! 🤖 How are you? ñáéíóú 中文 العربية @#$%^&*()';
       
@@ -94,12 +94,12 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
       await expect(chatInput).toHaveValue(specialText);
       
       await askButton.click();
-      await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+      await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
     });
 
     test('should handle rapid successive inputs', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       // Send first message
       await chatInput.fill('First message');
@@ -124,7 +124,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
 
     test('should handle empty and whitespace-only inputs', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       // Test empty input
       await askButton.click();
@@ -138,7 +138,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
       // Test with actual content
       await chatInput.fill('Real message');
       await askButton.click();
-      await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+      await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
     });
   });
 
@@ -162,7 +162,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
       await expect(page.locator('.mobile-viewport')).toBeVisible();
       
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       await expect(chatInput).toBeVisible();
       await expect(askButton).toBeVisible();
@@ -175,7 +175,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
       // Basic text input should still work
       await chatInput.fill('Test without APIs');
       await askButton.click();
-      await expect(page.locator('button:has-text("Thinking...")')).toBeVisible();
+      await expect(page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")'))).toBeVisible();
     });
 
     test('should handle console errors gracefully', async ({ page }) => {
@@ -190,7 +190,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
       
       // Trigger potential error scenarios
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       await chatInput.fill('Test error handling');
       await askButton.click();
@@ -212,7 +212,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
     
     test('should handle multiple avatar interactions without memory leaks', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       // Perform multiple interactions
       for (let i = 0; i < 5; i++) {
@@ -223,8 +223,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
         await page.waitForTimeout(2000);
         
         // Wait for return to normal state
-        while (await page.locator('button:has-text("Thinking...")').isVisible() || 
-               await page.locator('button:has-text("Speaking...")').isVisible()) {
+        while (await page.locator('[data-testid="ask-button"]:has-text("Thinking...")').or(page.locator('[data-testid="ask-button"]:has-text("Speaking...")')).isVisible()) {
           await page.waitForTimeout(500);
         }
         
@@ -239,7 +238,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
 
     test('should handle browser tab visibility changes', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       await chatInput.fill('Tab visibility test');
       await askButton.click();
@@ -269,7 +268,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
     
     test('should handle keyboard navigation edge cases', async ({ page }) => {
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       // Test Tab navigation
       await page.keyboard.press('Tab');
@@ -292,7 +291,7 @@ test.describe('Avatar Demo - Error Handling and Edge Cases', () => {
     test('should handle screen reader scenarios', async ({ page }) => {
       // Test ARIA attributes and labels
       const chatInput = page.locator('input[type="text"]');
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       
       // Check for proper labeling
       const inputPlaceholder = await chatInput.getAttribute('placeholder');

@@ -52,7 +52,7 @@ test.describe('iOS LLM Request Debug', () => {
         { timeout: 15000 }
       ).catch(() => null);
       
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       await askButton.click();
       
       // Wait a moment to see if processing starts

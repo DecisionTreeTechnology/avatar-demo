@@ -45,7 +45,7 @@ test.describe('iOS Input Debug', () => {
     console.log('After type value:', afterTypeValue);
     
     // Now try clicking Ask button
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]');
     await askButton.click();
     
     // Wait and check logs

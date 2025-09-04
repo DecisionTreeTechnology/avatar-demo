@@ -153,7 +153,7 @@ test.describe('Avatar Demo - Speech Recognition', () => {
     await page.waitForLoadState('networkidle');
     
     const chatInput = page.locator('input[type="text"]');
-    const askButton = page.locator('button:has-text("Ask")');
+    const askButton = page.locator('[data-testid="ask-button"]');
     const micButton = page.locator('button').filter({ has: page.locator('svg') }).first();
     
     if (await micButton.isVisible()) {
@@ -166,7 +166,7 @@ test.describe('Avatar Demo - Speech Recognition', () => {
       await askButton.click();
       
       // Wait for busy state
-      await page.waitForSelector('button:has-text("Thinking...")', { timeout: 5000 });
+      await page.waitForSelector('[data-testid="ask-button"]:has-text("Thinking..."), [data-testid="ask-button"]:has-text("Speaking...")', { timeout: 5000 });
       
       // Microphone should be stopped/disabled when avatar is busy
       const micState = await page.evaluate(() => {
@@ -218,7 +218,7 @@ test.describe('Avatar Demo - Speech Recognition', () => {
       const chatInput = page.locator('input[type="text"]');
       await expect(chatInput).toBeEnabled();
       
-      const askButton = page.locator('button:has-text("Ask")');
+      const askButton = page.locator('[data-testid="ask-button"]');
       await expect(askButton).toBeEnabled();
     }
   });

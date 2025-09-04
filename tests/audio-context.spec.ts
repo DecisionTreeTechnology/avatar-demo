@@ -157,7 +157,7 @@ test.describe('Avatar Demo - Audio Context Management', () => {
     
     const chatInput = page.locator('input[type="text"]');
     await chatInput.fill('Test audio context');
-    await page.locator('button:has-text("Ask")').click();
+    await page.locator('[data-testid="ask-button"]').click();
     
     // Wait a bit for logs to appear
     await page.waitForTimeout(1000);

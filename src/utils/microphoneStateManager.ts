@@ -84,7 +84,7 @@ export class MicrophoneStateManager {
       minSilenceDuration: 500,
       maxRetryAttempts: 3,
       feedbackFilterThreshold: 2,
-      autoRestartAfterTTS: false, // Default to false for safety
+      autoRestartAfterTTS: false, // ⚠️ CRITICAL: Keep false! EnhancedChatBar handles restart manually
       debounceDelay: 300,
       ...options
     };

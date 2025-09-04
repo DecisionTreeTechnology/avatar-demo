@@ -22,7 +22,9 @@
       "Bash(grep:*)",
       "Bash(echo:*)",
       "Bash(node:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Read(//private/tmp/**)",
+      "Read(//tmp/**)"
     ],
     "deny": [],
     "ask": []

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useEnhancedSpeechRecognition } from '../hooks/useEnhancedSpeechRecognition';
 
 interface EnhancedChatBarProps {
@@ -53,6 +53,11 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
   }));
 
   // Integrate with TTS state - Primary TTS state management
+  // 
+  // ⚠️  CRITICAL: This logic is essential for iOS microphone re-enablement
+  // Tested and verified working in commit 776ae4a7 and 7ad67939
+  // DO NOT MODIFY without comprehensive iOS testing
+  //
   useEffect(() => {
     if (isTTSSpeaking) {
       console.log('[EnhancedChatBar] TTS started - microphone should be DISABLED', {
@@ -71,6 +76,11 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
       speechRecognition.notifyTTSEnded();
       
       // Only restart if there was user intent or quick action flag
+      // 
+      // ⚠️  CRITICAL iOS FIX: This manual restart logic is ESSENTIAL for iOS
+      // DO NOT replace with microphone manager auto-restart - it's too restrictive
+      // This condition (OR logic) ensures microphone restarts in more scenarios
+      //
       if (speechRecognition.userIntentToListen || shouldEnableAfterTTSRef.current) {
         console.log('[EnhancedChatBar] Restarting microphone after TTS completion', {
           userIntentToListen: speechRecognition.userIntentToListen,

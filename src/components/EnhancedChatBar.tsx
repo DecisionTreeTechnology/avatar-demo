@@ -61,6 +61,7 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
         canStartCapture: speechRecognition.canStartCapture
       });
       speechRecognition.notifyTTSStarted();
+      
       // Clear any pending restart when TTS starts
       if (restartTimeoutRef.current) {
         clearTimeout(restartTimeoutRef.current);

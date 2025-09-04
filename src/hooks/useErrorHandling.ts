@@ -90,35 +90,28 @@ Your life has value, and there are people who want to help you through this diff
       }
     }
     
-    // Apply personality to error message
-    const personalizedError = personalitySystem.modifyResponse(
-      userFriendlyError,
-      { needsEmpathy: true }
-    );
-    
-    // Add error message to chat
-    const errorMessage_chat: ChatMessage = {
-      id: `error-${Date.now()}`,
-      text: personalizedError,
-      isUser: false,
-      timestamp: new Date()
-    };
+    // Apply personality to error message (future feature)
+    // const personalizedError = personalitySystem.modifyResponse(
+    //   userFriendlyError,
+    //   { needsEmpathy: true }
+    // );
 
     setLastError(userFriendlyError);
     
     return { isCrisis: false };
   }, []);
 
-  const isCrisisInput = useCallback((userInput: string): boolean => {
-    const userInputLower = userInput?.toLowerCase() || '';
-    const crisisKeywords = [
-      'suicide', 'kill myself', 'end my life', 'want to die', 'hurt myself', 
-      'self harm', 'cut myself', 'overdose', 'jump off', 'hang myself',
-      'worthless', 'hopeless', 'can\'t go on', 'better off dead', 'end it all'
-    ];
-    
-    return crisisKeywords.some(keyword => userInputLower.includes(keyword));
-  }, []);
+  // Crisis input detection (currently handled by ConversationManager)
+  // const isCrisisInput = useCallback((userInput: string): boolean => {
+  //   const userInputLower = userInput?.toLowerCase() || '';
+  //   const crisisKeywords = [
+  //     'suicide', 'kill myself', 'end my life', 'want to die', 'hurt myself', 
+  //     'self harm', 'cut myself', 'overdose', 'jump off', 'hang myself',
+  //     'worthless', 'hopeless', 'can\'t go on', 'better off dead', 'end it all'
+  //   ];
+  //   
+  //   return crisisKeywords.some(keyword => userInputLower.includes(keyword));
+  // }, []);
 
   return {
     lastError,

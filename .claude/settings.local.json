@@ -21,7 +21,8 @@
       "Bash(open:*)",
       "Bash(grep:*)",
       "Bash(echo:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

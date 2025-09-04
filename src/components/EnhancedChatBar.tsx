@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useEnhancedSpeechRecognition } from '../hooks/useEnhancedSpeechRecognition';
 
 interface EnhancedChatBarProps {

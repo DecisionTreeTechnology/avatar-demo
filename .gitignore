@@ -104,3 +104,4 @@ setup-https.sh
 src/components/*DebugPanel.tsx
 src/utils/iosDebugger.ts
 tests/ios-debug.spec.ts*
+.env

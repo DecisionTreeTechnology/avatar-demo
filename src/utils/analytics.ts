@@ -27,18 +27,21 @@ const appInsights = new ApplicationInsights({
     disableFetchTracking: false,
     enableUnhandledPromiseRejectionTracking: true,
     
-    // Live Metrics Stream configuration
-    enableLiveMetrics: true,
+    // Browser Live Metrics configuration
+    isLiveTelemetryEnabled: true,
+    enableRequestHeaderTracking: true,
+    enableResponseHeaderTracking: true,
     
-    // Performance and dependency tracking for Live Metrics
+    // Performance and dependency tracking
     enableDependencyTracking: true,
     enablePerformanceTimings: true,
     
-    // Sampling configuration for Live Metrics
-    samplingPercentage: 100, // 100% for development/testing, reduce for production
+    // Sampling configuration (100% for development)
+    samplingPercentage: 100,
     
-    // Enable detailed telemetry for Live Metrics
-    enableDebug: false, // Set to true only for debugging
+    // Additional telemetry for better Live Metrics visibility
+    enableAutoExceptionTracking: true,
+    autoExceptionInstrumented: true
   },
 });
 
@@ -46,6 +49,15 @@ const appInsights = new ApplicationInsights({
 if (import.meta.env.VITE_APPINSIGHTS_CONNECTION_STRING) {
   appInsights.loadAppInsights();
   console.log('Application Insights initialized');
+  
+  // Enable Live Metrics for browser applications
+  if (appInsights.appInsights) {
+    // Set up additional Live Metrics telemetry
+    appInsights.appInsights.context.device.type = 'Browser';
+    appInsights.appInsights.context.device.model = navigator.userAgent;
+    
+    console.log('Live Metrics telemetry enhanced for browser');
+  }
 } else {
   console.warn('Application Insights connection string not found. Analytics disabled in development.');
 }
@@ -164,8 +176,11 @@ class Analytics {
     // Send initial heartbeat
     heartbeat();
 
-    // Send heartbeat every 30 seconds for Live Metrics
-    setInterval(heartbeat, 30000);
+    // Send heartbeat every 10 seconds for Live Metrics visibility
+    setInterval(() => {
+      heartbeat();
+      this.sendLiveMetricsPing();
+    }, 10000);
   }
 
   // Start a new conversation
@@ -373,6 +388,35 @@ class Analytics {
         conversationId: this.conversationId,
       },
     });
+  }
+
+  // Send immediate telemetry for Live Metrics
+  sendLiveMetricsPing(): void {
+    if (!appInsights.appInsights) return;
+    
+    // Send multiple events that are visible in Live Metrics
+    appInsights.trackEvent({
+      name: 'LiveMetricsPing',
+      properties: {
+        sessionId: this.sessionId,
+        timestamp: new Date().toISOString(),
+        source: 'live_metrics_ping',
+      },
+    });
+
+    // Track a custom metric
+    appInsights.trackMetric({
+      name: 'ActiveSessions',
+      average: 1,
+      properties: {
+        sessionId: this.sessionId,
+      },
+    });
+
+    // Force immediate send
+    appInsights.flush();
+    
+    console.log('Live Metrics ping sent');
   }
 
   // Flush any pending telemetry (useful before page unload)

@@ -26,6 +26,19 @@ const appInsights = new ApplicationInsights({
     disableAjaxTracking: false,
     disableFetchTracking: false,
     enableUnhandledPromiseRejectionTracking: true,
+    
+    // Live Metrics Stream configuration
+    enableLiveMetrics: true,
+    
+    // Performance and dependency tracking for Live Metrics
+    enableDependencyTracking: true,
+    enablePerformanceTimings: true,
+    
+    // Sampling configuration for Live Metrics
+    samplingPercentage: 100, // 100% for development/testing, reduce for production
+    
+    // Enable detailed telemetry for Live Metrics
+    enableDebug: false, // Set to true only for debugging
   },
 });
 
@@ -124,6 +137,35 @@ class Analytics {
         language: navigator.language,
       },
     });
+
+    // Send a heartbeat event for Live Metrics visibility
+    this.trackHeartbeat();
+  }
+
+  // Track heartbeat for Live Metrics
+  private trackHeartbeat(): void {
+    if (!appInsights.appInsights) return;
+    
+    const heartbeat = () => {
+      appInsights.trackEvent({
+        name: 'Heartbeat',
+        properties: {
+          sessionId: this.sessionId,
+          conversationId: this.conversationId || 'none',
+          timestamp: new Date().toISOString(),
+          isActive: !document.hidden,
+        },
+        measurements: {
+          messagesInSession: this.messageCount,
+        },
+      });
+    };
+
+    // Send initial heartbeat
+    heartbeat();
+
+    // Send heartbeat every 30 seconds for Live Metrics
+    setInterval(heartbeat, 30000);
   }
 
   // Start a new conversation
@@ -294,6 +336,45 @@ class Analytics {
     });
   }
 
+  // Track performance metrics for Live Metrics
+  trackPerformance(metricName: string, duration: number): void {
+    if (!appInsights.appInsights) return;
+
+    // Track as both metric and custom event for Live Metrics
+    this.trackMetric(metricName, duration, {
+      category: 'Performance'
+    });
+
+    appInsights.trackEvent({
+      name: 'PerformanceMetric',
+      properties: {
+        metricName,
+        sessionId: this.sessionId,
+        timestamp: new Date().toISOString(),
+      },
+      measurements: {
+        duration,
+      },
+    });
+  }
+
+  // Track dependency calls (useful for Live Metrics)
+  trackDependency(name: string, command: string, startTime: Date, duration: number, success: boolean): void {
+    if (!appInsights.appInsights) return;
+
+    appInsights.trackDependencyData({
+      name,
+      data: command,
+      startTime,
+      duration,
+      success,
+      properties: {
+        sessionId: this.sessionId,
+        conversationId: this.conversationId,
+      },
+    });
+  }
+
   // Flush any pending telemetry (useful before page unload)
   flush(): void {
     if (!appInsights.appInsights) return;
@@ -319,3 +400,7 @@ export const endConversation = () => analytics.endConversation();
 export const trackError = (error: Error, context?: string) => analytics.trackError(error, context);
 export const trackMetric = (name: string, value: number, properties?: Record<string, string>) => 
   analytics.trackMetric(name, value, properties);
+export const trackPerformance = (metricName: string, duration: number) => 
+  analytics.trackPerformance(metricName, duration);
+export const trackDependency = (name: string, command: string, startTime: Date, duration: number, success: boolean) => 
+  analytics.trackDependency(name, command, startTime, duration, success);

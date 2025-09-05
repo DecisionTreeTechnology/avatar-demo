@@ -9,7 +9,7 @@ import { useAudioManager } from './useAudioManager';
 import { ChatMessage } from '../types/chat';
 import { AudioContextManager } from '../utils/audioContextManager';
 import { createLogger } from '../utils/logger';
-import { trackChatMessage, trackInteraction, startConversation } from '../utils/analytics';
+import { trackChatMessage, trackInteraction, startConversation, trackPerformance, trackDependency } from '../utils/analytics';
 
 interface ConversationManagerConfig {
   talkingHead: any;
@@ -71,9 +71,15 @@ export const useConversationManager = ({ talkingHead, personalitySystem: sharedP
       // Prepare LLM messages
       const msgs = [...conversationState.history, { role: 'user', content: question } as LLMMessage];
       
-      // Get LLM response
+      // Get LLM response with performance tracking
+      const llmStart = Date.now();
       const completion = await chat(msgs);
+      const llmDuration = Date.now() - llmStart;
       let reply = completion || '(No response)';
+      
+      // Track LLM performance
+      trackPerformance('LLM_Response_Time', llmDuration);
+      trackDependency('LLM', 'chat_completion', new Date(llmStart), llmDuration, !!completion);
       
       // Apply personality-based response modification
       const modifiedReply = personalitySystem.modifyResponse(reply, {
@@ -135,8 +141,14 @@ export const useConversationManager = ({ talkingHead, personalitySystem: sharedP
           console.warn('[ConversationManager] Warning ensuring AudioContext before playback:', ctxErr);
         }
 
-        // Use speech manager for TTS and avatar coordination
+        // Use speech manager for TTS and avatar coordination with performance tracking
+        const ttsStart = Date.now();
         await speechManager.speakWithAvatar(reply, talkingHead);
+        const ttsDuration = Date.now() - ttsStart;
+        
+        // Track TTS performance
+        trackPerformance('TTS_Duration', ttsDuration);
+        trackDependency('Azure_TTS', 'text_to_speech', new Date(ttsStart), ttsDuration, true);
         
       } catch (speechError) {
         logger.error('TTS synthesis or avatar speech failed:', speechError);

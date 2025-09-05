@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useEnhancedSpeechRecognition } from '../hooks/useEnhancedSpeechRecognition';
+import { trackInteraction } from '../utils/analytics';
 
 interface EnhancedChatBarProps {
   disabled?: boolean;
@@ -181,10 +182,12 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
     if (speechRecognition.userIntentToListen) {
       // User wants to stop listening
       console.log('[EnhancedChatBar] User stopping listening');
+      trackInteraction({ action: 'microphone_toggle', context: 'stop_listening' });
       speechRecognition.stopListening();
     } else {
       // User wants to start listening
       console.log('[EnhancedChatBar] User starting listening');
+      trackInteraction({ action: 'microphone_toggle', context: 'start_listening' });
       speechRecognition.startListening();
     }
   };
@@ -247,6 +250,7 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
               e.preventDefault(); 
               if (!value.trim()) return;
               onInteraction?.();
+              trackInteraction({ action: 'chat_send', context: 'enter_key' });
               onSend(value); 
               setValue(''); 
             } 
@@ -300,6 +304,7 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
               return;
             }
             onInteraction?.();
+            trackInteraction({ action: 'chat_send', context: 'text_input' });
             onSend(value);
             setValue('');
           }}

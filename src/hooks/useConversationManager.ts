@@ -9,6 +9,7 @@ import { useAudioManager } from './useAudioManager';
 import { ChatMessage } from '../types/chat';
 import { AudioContextManager } from '../utils/audioContextManager';
 import { createLogger } from '../utils/logger';
+import { trackChatMessage, trackInteraction, startConversation } from '../utils/analytics';
 
 interface ConversationManagerConfig {
   talkingHead: any;
@@ -55,6 +56,12 @@ export const useConversationManager = ({ talkingHead, personalitySystem: sharedP
       // Add user message to chat
       const userMessage = conversationState.addUserMessage(question);
       onChatMessageAdd(userMessage);
+      
+      // Track user message
+      trackChatMessage({
+        content: question,
+        role: 'user'
+      });
       
       // Analyze user input for emotion and apply to avatar
       logger.log('Analyzing user input emotion...');
@@ -109,6 +116,12 @@ export const useConversationManager = ({ talkingHead, personalitySystem: sharedP
       // Add assistant message to chat
       const assistantMessage = conversationState.addAssistantMessage(reply);
       onChatMessageAdd(assistantMessage);
+      
+      // Track assistant message
+      trackChatMessage({
+        content: reply,
+        role: 'assistant'
+      });
       
       // Use enhanced TTS with avatar lip sync and iOS support
       try {

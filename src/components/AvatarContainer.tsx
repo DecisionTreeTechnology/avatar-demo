@@ -1,4 +1,5 @@
 import React from 'react';
+import { trackInteraction } from '../utils/analytics';
 
 interface AvatarContainerProps {
   talkingHead: any;
@@ -22,7 +23,10 @@ export const AvatarContainer: React.FC<AvatarContainerProps> = ({
         data-scene={personalitySystem.currentPersonality === 'fertility_assistant' ? 'fertility_clinic' :
                    personalitySystem.currentPersonality === 'professional' ? 'office' :
                    personalitySystem.currentPersonality === 'casual' ? 'home' : 'park'}
-        className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none"
+        className="absolute inset-0 mobile-avatar-container landscape:relative landscape:w-full landscape:h-full landscape:max-w-none landscape:max-h-none cursor-pointer"
+        onClick={() => {
+          trackInteraction({ action: 'avatar_click', context: personalitySystem.currentPersonality });
+        }}
       >
         
         {!avatarReady && (

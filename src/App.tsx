@@ -5,15 +5,19 @@ import { ChatHistory } from './components/ChatHistory';
 import { AvatarContainer } from './components/AvatarContainer';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { IOSWarning } from './components/IOSWarning';
-import { AnimationControls } from './components/AnimationControls';
+import { SettingsModal } from './components/SettingsModal';
 
 import { useLLM } from './hooks/useLLM';
 import { useTalkingHead } from './hooks/useTalkingHead';
 import { useConversationManager } from './hooks/useConversationManager';
 import { useAudioManager } from './hooks/useAudioManager';
 import { usePersonalitySystem } from './hooks/usePersonalitySystem';
+import { useFeedback } from './hooks/useFeedback';
+import { useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { ChatMessage } from './types/chat';
 import { isTestMode } from './utils/testUtils';
+import { FeedbackModal } from './components/FeedbackModal';
+import { ToastContainer } from './components/Toast';
 
 export const App: React.FC = () => {
   const { loading: llmLoading } = useLLM();
@@ -31,10 +35,17 @@ export const App: React.FC = () => {
   
   const audioManager = useAudioManager();
   
+  // Feedback system
+  const feedback = useFeedback();
+  
+  // Layout management
+  const layout = useResponsiveLayout();
+  
   // Local state for UI
   const [isAsking, setIsAsking] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [showAnimationControls, setShowAnimationControls] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const chatBarRef = useRef<EnhancedChatBarRef>(null);
 
   // Test mode: simulate ready state for faster testing
@@ -48,11 +59,18 @@ export const App: React.FC = () => {
     personalitySystem, // Pass the shared personality system
     onChatMessageAdd: (message: ChatMessage) => {
       setChatMessages(prev => [...prev, message]);
+      // Show rating widget after 3+ Eva messages
+      if (!message.isUser && chatMessages.filter(m => !m.isUser).length >= 2) {
+        feedback.setShowRatingWidget(true);
+      }
     },
     onConversationUpdate: () => {
       // History is managed by conversation manager
     }
   });
+
+  // Note: conversationId is managed internally by the feedback system
+  // Each session gets a unique ID for correlation in analytics
 
   // Combined speaking state - use speech manager state or TalkingHead's state
   const isCurrentlySpeaking = conversationManager.speechManager.isSpeaking || talkingHead.isSpeaking;
@@ -89,8 +107,15 @@ export const App: React.FC = () => {
   }, [conversationManager]);
 
   return (
-    <AppShell>
-      <div className="mobile-viewport flex flex-col landscape:flex-row landscape:h-full">
+    <AppShell
+      sidebarOpen={layout.sidebarOpen}
+      onToggleSidebar={layout.toggleSidebar}
+      onCloseSidebar={layout.closeSidebar}
+      isMobile={layout.isMobile}
+      onOpenFeedback={() => setShowFeedbackModal(true)}
+      onToggleSettings={() => setShowSettingsModal(true)}
+    >
+      <div className="mobile-viewport flex flex-col landscape:flex-row landscape:h-full h-full">
         {/* Avatar Section - Fills ALL available space not taken by chat panel */}
         <AvatarContainer
           talkingHead={talkingHead}
@@ -144,6 +169,12 @@ export const App: React.FC = () => {
                   disabled={busy}
                   isTyping={isAsking || llmLoading}
                   hideWelcome={!avatarReady || !!conversationManager.errorHandling.lastError}
+                  // Feedback props
+                  showRatingWidget={feedback.showRatingWidget}
+                  messageFeedback={feedback.messageFeedback}
+                  onMessageFeedback={feedback.submitMessageFeedback}
+                  onSessionFeedback={feedback.submitSessionFeedback}
+                  onDismissRating={() => feedback.setShowRatingWidget(false)}
                 />
               </div>
               {/* Chat Input - Always visible at bottom */}
@@ -154,21 +185,39 @@ export const App: React.FC = () => {
                   onSend={handleAsk} 
                   busyLabel={llmLoading ? 'Thinking...' : 'Speaking...'} 
                   onInteraction={audioManager.initAudioContext}
-                  onToggleSettings={() => setShowAnimationControls(!showAnimationControls)}
                   isTTSSpeaking={isCurrentlySpeaking}
                   onStopSpeaking={conversationManager.speechManager.stopSpeaking}
                 />
                 
-                {/* Animation Controls Expandable Section */}
-                <AnimationControls
-                  show={showAnimationControls}
-                  talkingHead={talkingHead}
-                  personalitySystem={personalitySystem}
-                />
               </div>
             </div>
           </div>
         </div>
+
+        {/* Feedback Modal */}
+        <FeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          onSubmit={(comment, email, allowContact) => {
+            feedback.submitGeneralFeedback(comment, email, allowContact);
+            setShowFeedbackModal(false);
+          }}
+          disabled={busy}
+        />
+
+        {/* Settings Modal */}
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          talkingHead={talkingHead}
+          personalitySystem={personalitySystem}
+        />
+
+        {/* Toast notifications */}
+        <ToastContainer
+          toasts={feedback.toasts}
+          onRemove={feedback.removeToast}
+        />
       </div>
     </AppShell>
   );

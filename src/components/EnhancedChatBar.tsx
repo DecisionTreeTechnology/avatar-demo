@@ -350,7 +350,7 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
       
       {/* Privacy Notice */}
       <div className="mt-2 text-xs text-gray-500 text-center portrait:block portrait:w-full">
-        By using this chatbot, you agree to our{' '}
+        By using this Fertility Companion, you agree to our{' '}
         <a
           href="https://fertiligent.ai/privacy/"
           target="_blank"
@@ -359,8 +359,9 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
         >
           Privacy Policy
         </a>
-        . The AI may make mistakes — please double-check important information and
-        consult a qualified professional for medical advice.
+        .
+        <br />
+        This service is not a substitute for professional medical advice.
       </div>
       
       {/* Enhanced Error Display */}

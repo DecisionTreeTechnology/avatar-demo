@@ -236,7 +236,8 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
   const micButtonState = getMicrophoneButtonState();
 
   return (
-    <div className="flex gap-3 items-center flex-1 relative landscape:flex-col landscape:gap-4">
+    <div className="flex-1 relative">
+      <div className="flex gap-3 items-center landscape:flex-col landscape:gap-4">
       <div className="flex-1 relative landscape:w-full">
         <input
           type="text"
@@ -345,6 +346,22 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
           </button>
         )}
       </div>
+      </div>
+      
+      {/* Privacy Notice */}
+      <div className="mt-2 text-xs text-gray-500 text-center portrait:block portrait:w-full">
+        By using this chatbot, you agree to our{' '}
+        <a
+          href="https://fertiligent.ai/privacy/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-gray-400"
+        >
+          Privacy Policy
+        </a>
+        . The AI may make mistakes — please double-check important information and
+        consult a qualified professional for medical advice.
+      </div>
       
       {/* Enhanced Error Display */}
       {speechRecognition.error && (
@@ -373,7 +390,6 @@ export const EnhancedChatBar = forwardRef<EnhancedChatBarRef, EnhancedChatBarPro
           </div>
         </div>
       )}
-
     </div>
   );
 });

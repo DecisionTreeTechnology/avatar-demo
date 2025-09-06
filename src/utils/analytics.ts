@@ -50,14 +50,7 @@ if (import.meta.env.VITE_APPINSIGHTS_CONNECTION_STRING) {
   appInsights.loadAppInsights();
   console.log('Application Insights initialized');
   
-  // Enable Live Metrics for browser applications
-  if (appInsights.appInsights) {
-    // Set up additional Live Metrics telemetry
-    appInsights.appInsights.context.device.type = 'Browser';
-    appInsights.appInsights.context.device.model = navigator.userAgent;
-    
-    console.log('Live Metrics telemetry enhanced for browser');
-  }
+  console.log('Application Insights loaded successfully');
 } else {
   console.warn('Application Insights connection string not found. Analytics disabled in development.');
 }

@@ -126,7 +126,7 @@ export const useSpeechManager = (): SpeechManagerState => {
         }
 
         // NOTE: EnhancedChatBar handles microphone notifications
-      }).catch((speakError) => {
+      }).catch((speakError: any) => {
         logger.warn('TalkingHead speak error (continuing):', speakError);
         if (speakingTimeoutRef.current) {
           clearTimeout(speakingTimeoutRef.current);

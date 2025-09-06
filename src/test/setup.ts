@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import { vi } from 'vitest'
 
 // Mock TalkingHead
 const mockTalkingHead = {
@@ -11,10 +12,10 @@ const mockTalkingHead = {
   stopSpeaking: vi.fn(),
   setEmotion: vi.fn(),
   performGesture: vi.fn().mockResolvedValue(undefined)
-}
+};
 
 // Mock Azure Speech SDK
-global.SpeechSDK = {
+(global as any).SpeechSDK = {
   SpeechConfig: {
     fromSubscription: vi.fn(() => ({
       speechSynthesisOutputFormat: null
@@ -22,7 +23,7 @@ global.SpeechSDK = {
   },
   SpeechSynthesizer: vi.fn(() => ({
     wordBoundary: null,
-    speakSsmlAsync: vi.fn((ssml, success, error) => {
+    speakSsmlAsync: vi.fn((_ssml: any, success: any, _error: any) => {
       setTimeout(() => success({
         reason: 1,
         audioData: new ArrayBuffer(1024)
@@ -32,10 +33,10 @@ global.SpeechSDK = {
   ResultReason: {
     SynthesizingAudioCompleted: 1
   }
-}
+};
 
 // Mock AudioContext
-global.AudioContext = vi.fn(() => ({
+(global as any).AudioContext = vi.fn(() => ({
   state: 'suspended',
   resume: vi.fn().mockResolvedValue(undefined),
   createBuffer: vi.fn(() => ({
@@ -58,7 +59,29 @@ global.AudioContext = vi.fn(() => ({
   }),
   currentTime: 0,
   destination: {}
-}))
+}));
+
+// Mock localStorage
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    }
+  };
+})();
+
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock
+});
 
 // Export for use in tests
-export { mockTalkingHead }
+export { mockTalkingHead };

@@ -435,6 +435,91 @@ export const analytics = new Analytics();
 // Export the React plugin for component wrapping
 export { reactPlugin };
 
+// Feedback tracking functions
+export const trackFeedbackEvent = (feedbackEvent: import('../types/feedback').FeedbackEvent): void => {
+  if (!appInsights.appInsights) return;
+
+  const { type, sessionId, conversationId, messageId, data, feedbackEventId } = feedbackEvent;
+  
+  appInsights.trackEvent({
+    name: 'FeedbackEvent',
+    properties: {
+      feedbackType: type,
+      sessionId,
+      conversationId: conversationId || 'none',
+      messageId: messageId || 'none',
+      feedbackEventId,
+      timestamp: new Date().toISOString(),
+      ...(type === 'response' && {
+        state: (data as import('../types/feedback').MessageFeedback).state,
+        reason: (data as import('../types/feedback').MessageFeedback).reason,
+        hasNote: !!(data as import('../types/feedback').MessageFeedback).note
+      }),
+      ...(type === 'session' && {
+        rating: (data as import('../types/feedback').SessionFeedbackData).rating,
+        hasComment: !!(data as import('../types/feedback').SessionFeedbackData).comment
+      }),
+      ...(type === 'general' && {
+        hasEmail: !!(data as import('../types/feedback').GeneralFeedback).email,
+        allowContact: (data as import('../types/feedback').GeneralFeedback).allowContact
+      })
+    },
+    measurements: {
+      ...(type === 'session' && {
+        rating: (data as import('../types/feedback').SessionFeedbackData).rating
+      })
+    }
+  });
+
+  // Store detailed feedback text as trace (for non-sensitive content)
+  if (type === 'response' && (data as import('../types/feedback').MessageFeedback).note) {
+    const { sanitized, containsSensitive } = analytics['sanitizeMessage']((data as import('../types/feedback').MessageFeedback).note!);
+    if (!containsSensitive) {
+      appInsights.trackTrace({
+        message: `Response Feedback: ${sanitized}`,
+        severityLevel: 1,
+        properties: {
+          feedbackEventId,
+          sessionId,
+          messageId: messageId || '',
+          reason: (data as import('../types/feedback').MessageFeedback).reason
+        }
+      });
+    }
+  }
+
+  if (type === 'session' && (data as import('../types/feedback').SessionFeedbackData).comment) {
+    const { sanitized, containsSensitive } = analytics['sanitizeMessage']((data as import('../types/feedback').SessionFeedbackData).comment!);
+    if (!containsSensitive) {
+      appInsights.trackTrace({
+        message: `Session Feedback: ${sanitized}`,
+        severityLevel: 1,
+        properties: {
+          feedbackEventId,
+          sessionId,
+          rating: (data as import('../types/feedback').SessionFeedbackData).rating.toString()
+        }
+      });
+    }
+  }
+
+  if (type === 'general') {
+    const { sanitized, containsSensitive } = analytics['sanitizeMessage']((data as import('../types/feedback').GeneralFeedback).comment);
+    if (!containsSensitive) {
+      appInsights.trackTrace({
+        message: `General Feedback: ${sanitized}`,
+        severityLevel: 1,
+        properties: {
+          feedbackEventId,
+          sessionId,
+          hasEmail: !!(data as import('../types/feedback').GeneralFeedback).email,
+          allowContact: (data as import('../types/feedback').GeneralFeedback).allowContact.toString()
+        }
+      });
+    }
+  }
+};
+
 // Convenience functions
 export const trackChatMessage = (message: Omit<ChatMessage, 'conversationId' | 'timestamp' | 'messageLength' | 'containsSensitiveData'>) => 
   analytics.trackChatMessage(message);

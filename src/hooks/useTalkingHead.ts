@@ -347,7 +347,10 @@ export function useTalkingHead(options: UseTalkingHeadOptions = {}): UseTalkingH
           });
           const audioObj = {
             audio: silentBuffer,
-            timings: []
+            timings: [],
+            words: [],
+            wtimes: [],
+            wdurations: []
           };
           headRef.current.speakAudio(audioObj, {}, () => {
             console.log('[useTalkingHead] Silent audio completed - animation should stop');

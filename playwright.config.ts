@@ -12,7 +12,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 1,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 2,
   /* Global timeout for each test */
   timeout: 60000,
   /* Global timeout for expect assertions */
@@ -28,7 +28,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5175',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     /* Take screenshot on failure */
@@ -36,7 +36,7 @@ export default defineConfig({
     /* Record video on failure */
     video: 'retain-on-failure',
     /* Increase default timeout for slow avatar loading */
-    actionTimeout: 15000,
+    actionTimeout: 30000,
     navigationTimeout: 30000,
   },
 
@@ -92,7 +92,7 @@ export default defineConfig({
   // Web Server config
   webServer: {
     command: 'npm run dev',
-    port: 5173,
+    port: 5175,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,  // 2 minutes timeout for server startup
     stdout: 'ignore',

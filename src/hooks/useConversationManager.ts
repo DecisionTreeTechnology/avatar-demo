@@ -9,7 +9,7 @@ import { useAudioManager } from './useAudioManager';
 import { ChatMessage } from '../types/chat';
 import { AudioContextManager } from '../utils/audioContextManager';
 import { createLogger } from '../utils/logger';
-import { trackChatMessage, trackInteraction, startConversation, trackPerformance, trackDependency } from '../utils/analytics';
+import { trackChatMessage, trackPerformance, trackDependency } from '../utils/analytics';
 
 interface ConversationManagerConfig {
   talkingHead: any;

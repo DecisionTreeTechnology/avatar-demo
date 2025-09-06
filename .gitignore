@@ -105,3 +105,19 @@ src/components/*DebugPanel.tsx
 src/utils/iosDebugger.ts
 tests/ios-debug.spec.ts*
 .env
+
+# Azure and monitoring files
+azure-dashboard*.json
+azure-workbooks.json
+*dashboard*.json
+kusto-queries.md
+
+# Development and test scripts
+generate-*.js
+test-analytics.js
+verify-analytics.js
+debug-*.png
+..bfg-report/
+
+# Claude Code settings
+.claude/settings.local.json

@@ -152,14 +152,11 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
         {messages.length === 0 && !hideWelcome && (
           <div className="text-center py-1">
             <div className="mb-1">
-              <div className="w-10 h-10 mx-auto bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-2">
-                <span className="text-lg">💝</span>
-              </div>
               <h3 className="text-sm font-medium text-white/90 mb-1">
-                Hi! I'm here to support you
+                Hi! I'm Eva, your Fertility Companion 💜
               </h3>
               <p className="text-xs text-white/60 leading-tight">
-                I'm your caring fertility assistant. I'm here to listen, provide support, and help you through your journey with empathy and understanding.
+                I use the latest fertility knowledge base to support you, but I may still make mistakes. Please double-check important information and consult a healthcare professional for medical advice.
               </p>
             </div>
           </div>

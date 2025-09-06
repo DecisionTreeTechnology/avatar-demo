@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage } from '../types/chat';
+import { MessageFeedback } from './MessageFeedback';
+import { ConversationRating } from './ConversationRating';
+import { FeedbackState, FeedbackReason, SessionRating } from '../types/feedback';
 
 interface ChatHistoryProps {
   messages: ChatMessage[];
@@ -9,7 +12,13 @@ interface ChatHistoryProps {
   onEnableMicrophone?: () => void;
   disabled?: boolean;
   isTyping?: boolean;
-  hideWelcome?: boolean; // Hide the welcome message when greeting is being prepared
+  hideWelcome?: boolean;
+  // Feedback props
+  showRatingWidget?: boolean;
+  messageFeedback?: Record<string, FeedbackState>;
+  onMessageFeedback?: (messageId: string, state: FeedbackState, reason?: FeedbackReason, note?: string) => void;
+  onSessionFeedback?: (rating: SessionRating, comment?: string) => void;
+  onDismissRating?: () => void;
 }
 
 export const ChatHistory: React.FC<ChatHistoryProps> = ({ 
@@ -19,17 +28,19 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
   onEnableMicrophone,
   disabled = false,
   isTyping = false,
-  hideWelcome = false
+  hideWelcome = false,
+  // Feedback props
+  showRatingWidget = false,
+  messageFeedback = {},
+  onMessageFeedback,
+  onSessionFeedback,
+  onDismissRating
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showQuickActions, setShowQuickActions] = useState(false); // Start with false
   const [showDelayedQuickActions, setShowDelayedQuickActions] = useState(false);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[ChatHistory] Received messages:', messages.length, messages.map(m => ({ id: m.id, text: m.text.substring(0, 50) + '...', isUser: m.isUser })));
-  }, [messages]);
 
   // Auto scroll to bottom when new messages arrive or typing status changes
   const scrollToBottom = () => {
@@ -53,31 +64,24 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
     const hasUserMessages = messages.some(msg => msg.isUser);
     const hasAssistantMessages = messages.some(msg => !msg.isUser);
     
-    console.log('[ChatHistory] Quick actions logic:', { hasUserMessages, hasAssistantMessages, showDelayedQuickActions, showQuickActions });
-    
     // Hide quick actions after first user message
     if (hasUserMessages) {
-      console.log('[ChatHistory] Hiding quick actions - user has sent messages');
       setShowQuickActions(false);
       setShowDelayedQuickActions(false);
     } 
     // Show quick actions with delay after greeting appears
     else if (hasAssistantMessages && !showDelayedQuickActions) {
-      console.log('[ChatHistory] Scheduling quick actions to appear in 2 seconds');
       const timer = setTimeout(() => {
-        console.log('[ChatHistory] Showing quick actions now');
         setShowDelayedQuickActions(true);
         setShowQuickActions(true);
       }, 2000); // 2 second delay after greeting
       
       return () => {
-        console.log('[ChatHistory] Clearing quick actions timer');
         clearTimeout(timer);
       };
     }
     // Show immediately if no messages at all
     else if (!hasAssistantMessages && !hasUserMessages) {
-      console.log('[ChatHistory] Showing quick actions immediately - no messages');
       setShowQuickActions(true);
     }
   }, [messages, showDelayedQuickActions]);
@@ -196,6 +200,16 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
               }`}
             >
               <div className="text-sm leading-relaxed whitespace-pre-line break-words overflow-wrap-anywhere">{message.text}</div>
+              
+              {/* Message feedback for Eva messages */}
+              {!message.isUser && onMessageFeedback && (
+                <MessageFeedback
+                  messageId={message.id}
+                  currentFeedback={messageFeedback[message.id] || 'none'}
+                  onFeedbackChange={onMessageFeedback}
+                  disabled={disabled}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -213,6 +227,17 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
                 <span className="text-xs text-white/60">Thinking...</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Conversation rating widget */}
+        {showRatingWidget && onSessionFeedback && onDismissRating && (
+          <div className="mt-6">
+            <ConversationRating
+              onSubmit={onSessionFeedback}
+              onDismiss={onDismissRating}
+              disabled={disabled}
+            />
           </div>
         )}
 

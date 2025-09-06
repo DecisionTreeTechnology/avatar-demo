@@ -27,21 +27,12 @@ const appInsights = new ApplicationInsights({
     disableFetchTracking: false,
     enableUnhandledPromiseRejectionTracking: true,
     
-    // Browser Live Metrics configuration
-    isLiveTelemetryEnabled: true,
-    enableRequestHeaderTracking: true,
-    enableResponseHeaderTracking: true,
-    
-    // Performance and dependency tracking
-    enableDependencyTracking: true,
-    enablePerformanceTimings: true,
+    // Performance tracking enabled by default
     
     // Sampling configuration (100% for development)
     samplingPercentage: 100,
     
-    // Additional telemetry for better Live Metrics visibility
-    enableAutoExceptionTracking: true,
-    autoExceptionInstrumented: true
+    // Exception tracking enabled by default
   },
 });
 
@@ -93,11 +84,28 @@ class Analytics {
   }
 
   private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private generateConversationId(): string {
-    return `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `conv_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  }
+
+  private getPlatform(): string {
+    // Use modern userAgentData API if available, fallback to userAgent parsing
+    const userAgentData = (navigator as any).userAgentData;
+    if (userAgentData?.platform) {
+      return userAgentData.platform;
+    }
+
+    // Fallback: detect platform from userAgent
+    const ua = navigator.userAgent;
+    if (ua.includes('Win')) return 'Windows';
+    if (ua.includes('Mac')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    if (ua.includes('Android')) return 'Android';
+    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    return 'unknown';
   }
 
   private sanitizeMessage(content: string): { sanitized: string; containsSensitive: boolean } {
@@ -138,7 +146,7 @@ class Analytics {
         sessionId: this.sessionId,
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent,
-        platform: navigator.platform,
+        platform: this.getPlatform(),
         language: navigator.language,
       },
     });
@@ -296,7 +304,7 @@ class Analytics {
         timestamp: new Date().toISOString(),
       },
       measurements: {
-        duration: session.duration,
+        duration: session.duration || 0,
         messageCount: session.messageCount,
       },
     });
@@ -371,11 +379,13 @@ class Analytics {
     if (!appInsights.appInsights) return;
 
     appInsights.trackDependencyData({
+      id: `${name}-${Date.now()}`,
       name,
       data: command,
       startTime,
       duration,
       success,
+      responseCode: success ? 200 : 500,
       properties: {
         sessionId: this.sessionId,
         conversationId: this.conversationId,

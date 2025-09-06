@@ -16,6 +16,19 @@ export const AvatarContainer: React.FC<AvatarContainerProps> = ({
 }) => {
   return (
     <div className="flex-1 relative min-h-0 overflow-hidden landscape:h-full landscape:flex landscape:items-center landscape:justify-center">
+      {/* Fertiligent.ai brand link - moved to parent container */}
+      <a
+        href="https://fertiligent.ai/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute top-4 right-4 z-40 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-purple-700 text-sm font-medium hover:bg-white hover:shadow-lg transition-all duration-200 hover:scale-105"
+        onClick={(e) => {
+          e.stopPropagation(); // Prevent avatar click when clicking the link
+          trackInteraction({ action: 'avatar_click', context: 'fertiligent_brand_link' });
+        }}
+      >
+        Fertiligent.ai
+      </a>
       <div 
         ref={talkingHead.containerRef} 
         data-testid="avatar-container" 
